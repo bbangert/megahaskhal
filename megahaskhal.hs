@@ -23,20 +23,22 @@ parseFile :: [String] -> IO ()
 parseFile [fileName] =
     withFile fileName ReadMode (\handle -> do
         contents <- BL.hGetContents handle
-        let (cookie, order, left, right) = G.runGet parseTrees contents
+        let (cookie, order, left, right, dictWords) = G.runGet parseModel contents
             leftCount = length $ getChildren left
             rightCount = length $ getChildren right
-        print (cookie, order, leftCount, rightCount)
+        print (cookie, order, leftCount, rightCount, take 10 dictWords)
     )
 parseFile _ = putStrLn "No filename specified."
 
-parseTrees :: G.Get (BL.ByteString, Word8, Tree, Tree)
-parseTrees = do
+parseModel :: G.Get (BL.ByteString, Word8, Tree, Tree, [BL.ByteString])
+parseModel = do
     cookie <- G.getLazyByteString 9
     order <- G.getWord8
     leftTree <- parseTree
     rightTree <- parseTree
-    return (cookie, order, leftTree, rightTree)
+    dictLength <- G.getWord32le
+    dictWords <- replicateM (fromIntegral dictLength) parseWord
+    return (cookie, order, leftTree, rightTree, dictWords)
 
 parseTree :: G.Get Tree
 parseTree = do
@@ -46,3 +48,9 @@ parseTree = do
     branch <- G.getWord16le
     children <- replicateM (fromIntegral branch) parseTree
     return $ Tree symbol usage count children
+
+parseWord :: G.Get BL.ByteString
+parseWord = do
+    wordLength <- G.getWord8
+    word <- G.getLazyByteString $ fromIntegral wordLength
+    return word
