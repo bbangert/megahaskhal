@@ -18,8 +18,8 @@ loadBrainFromFilename fileName =
     withFile fileName ReadMode (\handle -> do
         contents <- BL.hGetContents handle
         let (cookie, order, forward, backward, dictWords) = G.runGet parseModel contents
-            leftCount = length $ getChildren forward
-            rightCount = length $ getChildren backward
+            leftCount = S.length $ getChildren forward
+            rightCount = S.length $ getChildren backward
         print (cookie, order, leftCount, rightCount, S.length dictWords)
         return $ Just $ Brain forward backward (LC.unpack cookie) (fromIntegral order) dictWords
     )
@@ -40,7 +40,7 @@ parseTree = do
     usage <- G.getWord32le
     count <- G.getWord16le
     branch <- G.getWord16le
-    children <- replicateM (fromIntegral branch) parseTree
+    children <- S.replicateM (fromIntegral branch) parseTree
     return $ Tree symbol usage count children
 
 parseWord :: G.Get BL.ByteString

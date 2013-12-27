@@ -1,18 +1,17 @@
 module Megahaskhal.Internal where
 
 import Data.ByteString.Lazy (ByteString)
-import Data.IntMap.Strict (IntMap)
-
+import Data.Sequence (Seq)
 
 import Data.Word
 
-type Dictionary = IntMap ByteString
+type Dictionary = Seq ByteString
 
 data Tree = Tree {
     getSymbol :: !Word16
     , getUsage :: !Word32
     , getCount :: !Word16
-    , getChildren :: [Tree]
+    , getChildren :: Seq Tree
     } deriving (Show)
 
 data Brain = Brain {
