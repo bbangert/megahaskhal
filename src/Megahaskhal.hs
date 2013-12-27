@@ -13,9 +13,8 @@ import qualified Data.ByteString.Lazy.Char8 as LC
 import Data.Sequence ( ViewR( (:>) ), ViewL( (:<) ))
 import Data.Map.Strict as M
 
-type Keywords = [String]
-type Replies = [String]
 
+-- | Seed a first word for the reply words
 seed :: I.Context -> IO Word16
 seed context
     | childLength == 0 = return 0
@@ -41,7 +40,7 @@ babble ctx dict keywords replies used
         let (front, end) = S.splitAt position children
             searchTree = S.take count $ end S.>< front
         return $ findWordToUse searchTree dict keywords replies used
-    where _:>lastContext = S.viewr ctx
+    where _ :> lastContext = S.viewr ctx
           children = I.getChildren lastContext
           childLength = S.length children
 
