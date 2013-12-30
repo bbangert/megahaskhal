@@ -5,6 +5,7 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Sequence (Seq)
 import System.Random (StdGen)
 import qualified Data.Map.Strict as M
+import qualified Data.Vector as V
 
 import Data.Word
 
@@ -20,7 +21,7 @@ data Tree = Empty | Tree {
     getSymbol :: !Int
     , getUsage :: !Int
     , getCount :: !Int
-    , getChildren :: Seq Tree
+    , getChildren :: V.Vector Tree
     } deriving (Eq, Show)
 
 data Brain = Brain {
@@ -41,4 +42,5 @@ null Empty = True
 null _ = False
 
 newBrainOrder :: Brain -> Int -> Brain
-newBrainOrder ob ord = Brain (getForward ob) (getBackward ob) (getCookie ob) ord (getDictionary ob)
+newBrainOrder ob ord =
+    Brain (getForward ob) (getBackward ob) (getCookie ob) ord (getDictionary ob)
