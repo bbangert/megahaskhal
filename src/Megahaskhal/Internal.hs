@@ -1,12 +1,14 @@
 module Megahaskhal.Internal where
 
+import Prelude hiding (null)
 import Data.ByteString.Lazy (ByteString)
 import Data.Sequence (Seq)
+import System.Random (StdGen)
 import qualified Data.Map.Strict as M
 
 import Data.Word
 
-type Dictionary = Seq ByteString
+type Dictionary = Seq String
 
 rawAuxWords = [
     "DISLIKE", "HE", "HER", "HERS", "HIM", "HIS", "I", "I'D", "I'LL", "I'M",
@@ -14,12 +16,12 @@ rawAuxWords = [
     "YOU'D", "YOU'LL", "YOU'RE", "YOU'VE", "YOUR", "YOURSELF"]
 auxWords = M.fromList $ zip rawAuxWords $ repeat True
 
-data Tree = Tree {
-    getSymbol :: !Word16
-    , getUsage :: !Word32
-    , getCount :: !Word16
+data Tree = Empty | Tree {
+    getSymbol :: !Int
+    , getUsage :: !Int
+    , getCount :: !Int
     , getChildren :: Seq Tree
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 data Brain = Brain {
     getForward :: Tree
@@ -33,3 +35,7 @@ type Context = Seq Tree
 
 isAuxWord :: String -> Bool
 isAuxWord = flip M.member auxWords
+
+null :: Tree -> Bool
+null Empty = True
+null _ = False

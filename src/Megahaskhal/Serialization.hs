@@ -41,10 +41,10 @@ parseTree = do
     count <- G.getWord16le
     branch <- G.getWord16le
     children <- S.replicateM (fromIntegral branch) parseTree
-    return $ Tree symbol usage count children
+    return $ Tree (fromIntegral symbol :: Int) (fromIntegral usage :: Int) (fromIntegral count :: Int) children
 
-parseWord :: G.Get BL.ByteString
+parseWord :: G.Get String
 parseWord = do
     wordLength <- G.getWord8
     word <- G.getLazyByteString $ fromIntegral wordLength
-    return word
+    return $ LC.unpack word
