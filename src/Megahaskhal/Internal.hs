@@ -39,3 +39,6 @@ isAuxWord = flip M.member auxWords
 null :: Tree -> Bool
 null Empty = True
 null _ = False
+
+newBrainOrder :: Brain -> Int -> Brain
+newBrainOrder ob ord = Brain (getForward ob) (getBackward ob) (getCookie ob) ord (getDictionary ob)
