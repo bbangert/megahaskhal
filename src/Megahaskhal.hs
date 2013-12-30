@@ -6,7 +6,7 @@ module Megahaskhal (
     ) where
 
 import Control.Monad.State (State, state, runState)
-import Data.Char (toTitle, toLower)
+import Data.Char (toTitle, toLower, toUpper)
 import Data.List (concat)
 import Data.Map.Strict as M
 import Data.Sequence ( (|>), ViewR( (:>) ), ViewL( (:<) ))
@@ -26,14 +26,28 @@ lastTree ctx =
 
 
 -- | Seed a first word for the reply words
-seed :: I.Context -> State StdGen Int
-seed ctx
+seed :: I.Context -> I.Dictionary -> [String] -> State StdGen Int
+seed ctx dict keywords
     | childLength == 0 = return 0
+    | Prelude.length keywords > 0 = do
+        let lookupSymbol = flip S.elemIndexL dict
+            valid = validSymbols $ Prelude.map lookupSymbol keywords
+        if Prelude.length valid < 1
+            then seed ctx dict []
+            else do
+                ind <- state $ randomR (0, Prelude.length valid - 1)
+                return $ valid !! ind
     | otherwise = do
         childIndex <- state $ randomR (0, childLength-1)
         return $ I.getSymbol . flip S.index childIndex $ children
     where children = I.getChildren $ S.index ctx 0
           childLength = S.length children
+
+
+validSymbols :: [Maybe Int] -> [Int]
+validSymbols [] = []
+validSymbols (Nothing:xs) = validSymbols xs
+validSymbols ((Just x):xs) = x:validSymbols xs
 
 
 -- | Return a random word from the current context.
@@ -95,74 +109,80 @@ findWordToUse ctx dict keys replies used symb
 
 
 reply :: I.Brain                        -- ^ A brain to start with
-      -> [String]                       -- ^ Words to respond to
+      -> String                         -- ^ Words to respond to
       -> State StdGen String            -- ^ Reply words
-reply brain keywords = do
-    let dict = I.getDictionary brain
+reply brain phrase = do
+    let keywords = words . (Prelude.map toUpper) $ phrase
+        dict = I.getDictionary brain
         order = I.getOrder brain
         empties = take order $ repeat I.Empty
         initialCtx = S.fromList $ I.getForward brain : empties
-    (fWords, usedKey) <- forwardWords initialCtx dict order [] False
+    (fWords, usedKey) <- forwardWords initialCtx dict order keywords [] False
     let backCtx = S.fromList $ I.getBackward brain : empties
         minCtx = min (Prelude.length fWords) order
         lookupSymbol = flip S.elemIndexL dict
         wordsToUse = Prelude.map lookupSymbol $ Prelude.take minCtx fWords
         newBackCtx = createBackContext backCtx (reverse wordsToUse)
-    (bWords, _) <- backwardWords newBackCtx dict order fWords usedKey
+    (bWords, _) <- backwardWords newBackCtx dict order keywords fWords usedKey
     let phrase = foldr1 (++) $ bWords ++ fWords
         lowered = Prelude.map toLower phrase
         titled = toTitle (head lowered) : tail lowered
     return $ titled
 
 
+-- | Create a context suitable for navigating backwards based on the symbols
+-- used in the current reply.
 createBackContext :: I.Context -> [Maybe Int] -> I.Context
 createBackContext ctx [] = ctx
+createBackContext ctx (Nothing:xs) = createBackContext ctx xs
 createBackContext ctx ((Just w):xs) = createBackContext (updateContext ctx w) xs
 
 
 backwardWords :: I.Context              -- ^ Context to begin with
               -> I.Dictionary           -- ^ Dictionary to use
               -> Int                    -- ^ Order
+              -> [String]               -- ^ Keywords entered
               -> [String]               -- ^ Words in the reply so far
               -> Bool                   -- ^ Used the key or not
               -> State StdGen ([String], Bool)
-backwardWords ctx dict order replies usedKey = do
-    (symbol, newUsedKey) <- babble ctx dict [] replies usedKey
+backwardWords ctx dict order keywords replies usedKey = do
+    (symbol, newUsedKey) <- babble ctx dict keywords replies usedKey
     if symbol `elem` [0, 1]
         then return ([], newUsedKey)
         else do
             let word = S.index dict symbol
                 replyWords = word:replies
                 newCtx = S.take (order+1) $ updateContext ctx symbol
-            (rest, returnKey) <- backwardWords newCtx dict order replyWords newUsedKey
+            (rest, returnKey) <- backwardWords newCtx dict order keywords replyWords newUsedKey
             return (rest ++ [word], returnKey)
 
 
 forwardWords :: I.Context               -- ^ Context to begin with
              -> I.Dictionary            -- ^ Dictionary to use
              -> Int                     -- ^ Order
+             -> [String]                -- ^ Keywords entered
              -> [String]                -- ^ Words in the reply so far
              -> Bool                    -- ^ Used the key or not
              -> State StdGen ([String], Bool)
-forwardWords ctx dict order replies usedKey
+forwardWords ctx dict order keywords replies usedKey
     | Prelude.null replies = do
-        symbol <- seed ctx
+        symbol <- seed ctx dict keywords
         if symbol `elem` [0, 1]
             then return ([], usedKey)
             else do
                 let startWord = S.index dict symbol
                     newCtx = S.take (order+1) $ updateContext (ctx |> I.Empty) symbol
-                (rest, returnKey) <- forwardWords newCtx dict order [startWord] usedKey
+                (rest, returnKey) <- forwardWords newCtx dict order keywords [startWord] usedKey
                 return (startWord:rest, returnKey)
     | otherwise = do
-        (symbol, newUsedKey) <- babble ctx dict [] replies usedKey
+        (symbol, newUsedKey) <- babble ctx dict keywords replies usedKey
         if symbol `elem` [0, 1]
             then return ([], newUsedKey)
             else do
                 let word = S.index dict symbol
                     replyWords = word:replies
                     newCtx = S.take (order+1) $ updateContext (ctx |> I.Empty) symbol
-                (rest, returnKey) <- forwardWords newCtx dict order replyWords newUsedKey
+                (rest, returnKey) <- forwardWords newCtx dict order keywords replyWords newUsedKey
                 return (word:rest, returnKey)
 
 
