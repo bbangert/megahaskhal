@@ -15,12 +15,28 @@ build-type:          Simple
 extra-source-files:  CHANGELOG, README.rst
 cabal-version:       >=1.10
 
+executable megahaskhal
+    main-is:    Main.hs
+    Build-depends:
+        base >=4.6 && <4.7,
+        binary >= 0.7.1.0 && <0.8,
+        containers >= 0.5.0.0,
+        bytestring >= 0.10.0.2,
+        random >= 1.0.1.1,
+        mtl >= 2.1.2,
+        vector <= 0.10.0.1,
+        megahaskhal >= 0.1.0.0
+    ghc-options: -O2
+
 Library
   Exposed-modules:
     Megahaskhal
+    Megahaskhal.Internal
+    Megahaskhal.Serialization
 
   -- other-modules:
   -- other-extensions:
+
 
   Build-depends:
     base >=4.6 && <4.7,
@@ -28,7 +44,8 @@ Library
     containers >= 0.5.0.0,
     bytestring >= 0.10.0.2,
     random >= 1.0.1.1,
-    mtl >= 2.1.2
+    mtl >= 2.1.2,
+    vector <= 0.10.0.1
 
   Hs-source-dirs:
     src
