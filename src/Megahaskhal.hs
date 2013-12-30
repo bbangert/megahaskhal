@@ -2,25 +2,28 @@ module Megahaskhal (
     loadBrainFromFilename,
     reply,
     seed,
-    babble
+    babble,
+    Brain
     ) where
 
-import Control.Monad.State (State, state, runState)
+import Control.Monad.State (State, state)
 import Data.Char (toTitle, toLower, toUpper)
 import Data.List (concat)
 import Data.Map.Strict as M
 import Data.Sequence ( (|>), ViewR( (:>) ), ViewL( (:<) ))
 import System.Random (getStdRandom, randomR, StdGen, RandomGen, Random)
 import qualified Data.Sequence as S
+import qualified Data.Vector as V
 
 import Megahaskhal.Serialization (loadBrainFromFilename)
 import qualified Megahaskhal.Internal as I
+import Megahaskhal.Internal (Brain)
 
 
 -- | Return the last non-Empty tree in a Context sequence
 lastTree :: I.Context -> I.Tree
 lastTree ctx =
-    let (_, remaining) = S.spanr (I.null) ctx
+    let (_, remaining) = S.spanr I.null ctx
         _ :> lastContext = S.viewr remaining
     in lastContext
 
@@ -36,14 +39,15 @@ seed ctx dict keywords
             then seed ctx dict []
             else do
                 ind <- state $ randomR (0, Prelude.length valid - 1)
-                return $ valid !! ind
+                return $! valid !! ind
     | otherwise = do
         childIndex <- state $ randomR (0, childLength-1)
-        return $ I.getSymbol . flip S.index childIndex $ children
+        return $! I.getSymbol $ V.unsafeIndex children childIndex
     where children = I.getChildren $ S.index ctx 0
-          childLength = S.length children
+          childLength = V.length children
 
 
+-- | Filter a maybe list of int's to only the ints
 validSymbols :: [Maybe Int] -> [Int]
 validSymbols [] = []
 validSymbols (Nothing:xs) = validSymbols xs
@@ -62,48 +66,36 @@ babble ctx dict keywords replies used
     | otherwise = do
         position <- state $ randomR (0, childLength-1)
         count <- state $ randomR (0, I.getUsage lastContext)
-        let newTree = searchTree children position (count+1)
-        return $ findWordToUse newTree dict keywords replies used 0
+        return $! findWordToUse children dict keywords replies used 0 position count
     where lastContext = lastTree ctx
           children = I.getChildren lastContext
-          childLength = S.length children
-
-
--- | Construct a new tree by splitting a sequence tree and constructing
--- a new one no more than the length desired by starting at the split
--- position and continuing as needed.
-searchTree :: S.Seq I.Tree
-           -> Int                   -- ^ Position to splice
-           -> Int                   -- ^ Length of desired sequence
-           -> S.Seq I.Tree
-searchTree tree position len
-    | rLen <= 0 = S.take len end
-    | otherwise = end S.>< S.take rLen front
-    where (front, end) = S.splitAt position tree
-          rLen = len - (S.length end)
+          childLength = V.length children
 
 
 -- | Find a word to use out of the sequence of trees. This sequence should be
 -- appropriately chopped so that it represents exactly how many tree's
 -- should be considered.
-findWordToUse :: S.Seq I.Tree           -- ^ Sequence of trees to search
+findWordToUse :: V.Vector I.Tree        -- ^ Vector of trees to search
               -> I.Dictionary           -- ^ Dictionary of all words
               -> [String]               -- ^ List of keywords
               -> [String]               -- ^ List of reply words used
               -> Bool                   -- ^ Whether the key has been used
               -> Int                    -- ^ Current symbol chosen
+              -> Int                    -- ^ Current position
+              -> Int                    -- ^ Remaining times to search
               -> (Int, Bool)            -- ^ The symbol and whether the key was used
-findWordToUse ctx _ _ _ used symb
-    | S.null ctx = (symb, used)
-findWordToUse ctx dict keys replies used symb
+findWordToUse ctx dict keys replies used symb pos count
     | and [elem word keys,
            or [used, not $ I.isAuxWord word],
            not $ elem word replies] = (symbol, True)
     | otherwise =
-        let count = I.getCount node
-            remainingCtx = S.drop count ctx
-        in findWordToUse remainingCtx dict keys replies used symbol
-    where node :< _ = S.viewl ctx
+        let newCount = count - I.getCount node
+        in if newCount < 0
+            then (symbol, used)
+            else
+                let position = if pos+1 >= (V.length ctx) then 0 else pos+1
+                in findWordToUse ctx dict keys replies used symbol position newCount
+    where node = V.unsafeIndex ctx pos
           symbol = I.getSymbol node
           word = S.index dict symbol
 
@@ -152,9 +144,9 @@ backwardWords ctx dict order keywords replies usedKey = do
         else do
             let word = S.index dict symbol
                 replyWords = word:replies
-                newCtx = S.take (order+1) $ updateContext ctx symbol
+                newCtx = S.take (order+1) $! updateContext ctx symbol
             (rest, returnKey) <- backwardWords newCtx dict order keywords replyWords newUsedKey
-            return (rest ++ [word], returnKey)
+            return $! (rest ++ [word], returnKey)
 
 
 forwardWords :: I.Context               -- ^ Context to begin with
@@ -171,9 +163,9 @@ forwardWords ctx dict order keywords replies usedKey
             then return ([], usedKey)
             else do
                 let startWord = S.index dict symbol
-                    newCtx = S.take (order+1) $ updateContext (ctx |> I.Empty) symbol
+                    newCtx = S.take (order+1) $! updateContext (ctx |> I.Empty) symbol
                 (rest, returnKey) <- forwardWords newCtx dict order keywords [startWord] usedKey
-                return (startWord:rest, returnKey)
+                return $! (startWord:rest, returnKey)
     | otherwise = do
         (symbol, newUsedKey) <- babble ctx dict keywords replies usedKey
         if symbol `elem` [0, 1]
@@ -181,9 +173,9 @@ forwardWords ctx dict order keywords replies usedKey
             else do
                 let word = S.index dict symbol
                     replyWords = word:replies
-                    newCtx = S.take (order+1) $ updateContext (ctx |> I.Empty) symbol
+                    newCtx = S.take (order+1) $! updateContext (ctx |> I.Empty) symbol
                 (rest, returnKey) <- forwardWords newCtx dict order keywords replyWords newUsedKey
-                return (word:rest, returnKey)
+                return $! (word:rest, returnKey)
 
 
 updateContext :: I.Context              -- ^ Front portion of context to update
@@ -199,8 +191,19 @@ updateContext ctx symbol
 
 
 findSymbol :: I.Tree -> Int -> I.Tree
-findSymbol t symbol
-    | S.length foundNodes < 1 = I.Empty
-    | otherwise = let fnt :< _ = S.viewl foundNodes in fnt
-    where children = I.getChildren t
-          foundNodes = S.filter ((==symbol) . I.getSymbol) children
+findSymbol t symbol =
+    let children = I.getChildren t
+        node = binsearch children symbol 0 (V.length children - 1)
+    in case node of
+        Nothing -> I.Empty
+        Just x -> children V.! x
+
+
+binsearch :: V.Vector I.Tree -> Int -> Int -> Int -> Maybe Int -- list, value, low, high, return int
+binsearch xs value low high
+   | high < low       = Nothing
+   | pivot > value  = binsearch xs value low (mid-1)
+   | pivot < value  = binsearch xs value (mid+1) high
+   | otherwise        = Just mid
+   where mid = low + ((high - low) `div` 2)
+         pivot = I.getSymbol $! xs V.! mid
