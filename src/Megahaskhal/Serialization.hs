@@ -11,7 +11,8 @@ import qualified Data.Binary.Get as G
 import qualified Data.Sequence as S
 import qualified Data.Vector as V
 
-import Megahaskhal.Internal (Brain (Brain), Tree (Tree), Dictionary, getChildren)
+import Megahaskhal.Internal (Brain (Brain), Dictionary)
+import Megahaskhal.Tree (Tree (Tree), getChildren)
 
 loadBrainFromFilename :: String -> IO (Maybe Brain)
 loadBrainFromFilename "" = return Nothing

@@ -33,6 +33,7 @@ Library
     Megahaskhal
     Megahaskhal.Internal
     Megahaskhal.Serialization
+    Megahaskhal.Tree
 
   -- other-modules:
   -- other-extensions:
