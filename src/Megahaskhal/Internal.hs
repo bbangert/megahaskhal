@@ -32,7 +32,7 @@ data Brain = Brain {
     , getDictionary :: Dictionary
 } deriving (Show)
 
-type Context = Seq Tree
+type Context = [Tree]
 
 isAuxWord :: String -> Bool
 isAuxWord = flip M.member auxWords

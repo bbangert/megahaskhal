@@ -8,10 +8,10 @@ module Megahaskhal (
 
 import Control.Monad.State (State, state)
 import Data.Char (toTitle, toLower, toUpper)
-import Data.List (concat)
-import Data.Map.Strict as M
+import Data.List (concat, foldl', dropWhileEnd)
 import Data.Sequence ( (|>), ViewR( (:>) ), ViewL( (:<) ))
 import System.Random (getStdRandom, randomR, StdGen, RandomGen, Random)
+import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
 import qualified Data.Vector as V
 
@@ -22,10 +22,7 @@ import Megahaskhal.Internal (Brain)
 
 -- | Return the last non-Empty tree in a Context sequence
 lastTree :: I.Context -> I.Tree
-lastTree ctx =
-    let (_, remaining) = S.spanr I.null ctx
-        _ :> lastContext = S.viewr remaining
-    in lastContext
+lastTree ctx = last $! dropWhileEnd I.null ctx
 
 
 -- | Seed a first word for the reply words
@@ -43,7 +40,7 @@ seed ctx dict keywords
     | otherwise = do
         childIndex <- state $ randomR (0, childLength-1)
         return $! I.getSymbol $ V.unsafeIndex children childIndex
-    where children = I.getChildren $ S.index ctx 0
+    where children = I.getChildren $ head ctx
           childLength = V.length children
 
 
@@ -108,13 +105,13 @@ reply brain phrase = do
         dict = I.getDictionary brain
         order = I.getOrder brain
         empties = take order $ repeat I.Empty
-        initialCtx = S.fromList $ I.getForward brain : empties
+        initialCtx = I.getForward brain : empties
     (fWords, usedKey) <- forwardWords initialCtx dict order keywords [] False
-    let backCtx = S.fromList $ I.getBackward brain : empties
+    let backCtx = I.getBackward brain : empties
         minCtx = min (Prelude.length fWords) order
         lookupSymbol = flip S.elemIndexL dict
         wordsToUse = Prelude.map lookupSymbol $ Prelude.take minCtx fWords
-        newBackCtx = createBackContext backCtx (reverse wordsToUse)
+        newBackCtx = createBackContext backCtx order (reverse wordsToUse)
     (bWords, _) <- backwardWords newBackCtx dict order keywords fWords usedKey
     let phrase = foldr1 (++) $ bWords ++ fWords
         lowered = Prelude.map toLower phrase
@@ -124,10 +121,10 @@ reply brain phrase = do
 
 -- | Create a context suitable for navigating backwards based on the symbols
 -- used in the current reply.
-createBackContext :: I.Context -> [Maybe Int] -> I.Context
-createBackContext ctx [] = ctx
-createBackContext ctx (Nothing:xs) = createBackContext ctx xs
-createBackContext ctx ((Just w):xs) = createBackContext (updateContext ctx w) xs
+createBackContext :: I.Context -> Int -> [Maybe Int] -> I.Context
+createBackContext ctx _ [] = ctx
+createBackContext ctx order (Nothing:xs) = createBackContext ctx order xs
+createBackContext ctx order ((Just w):xs) = createBackContext (updateContext ctx order w) order xs
 
 
 backwardWords :: I.Context              -- ^ Context to begin with
@@ -144,7 +141,7 @@ backwardWords ctx dict order keywords replies usedKey = do
         else do
             let word = S.index dict symbol
                 replyWords = word:replies
-                newCtx = S.take (order+1) $! updateContext ctx symbol
+                newCtx = updateContext ctx order symbol
             (rest, returnKey) <- backwardWords newCtx dict order keywords replyWords newUsedKey
             return $! (rest ++ [word], returnKey)
 
@@ -163,7 +160,7 @@ forwardWords ctx dict order keywords replies usedKey
             then return ([], usedKey)
             else do
                 let startWord = S.index dict symbol
-                    newCtx = S.take (order+1) $! updateContext (ctx |> I.Empty) symbol
+                    newCtx = updateContext ctx order symbol
                 (rest, returnKey) <- forwardWords newCtx dict order keywords [startWord] usedKey
                 return $! (startWord:rest, returnKey)
     | otherwise = do
@@ -173,24 +170,24 @@ forwardWords ctx dict order keywords replies usedKey
             else do
                 let word = S.index dict symbol
                     replyWords = word:replies
-                    newCtx = S.take (order+1) $! updateContext (ctx |> I.Empty) symbol
+                    newCtx = updateContext ctx order symbol
                 (rest, returnKey) <- forwardWords newCtx dict order keywords replyWords newUsedKey
                 return $! (word:rest, returnKey)
 
 
 updateContext :: I.Context              -- ^ Front portion of context to update
+              -> Int                    -- ^ Order
               -> Int                    -- ^ Symbol to locate in the tree
-              -> I.Context              -- ^ The updated context
-updateContext ctx _
-    | S.length ctx <= 1     = ctx
-updateContext ctx symbol
-    | I.null prior          = updateContext fnt symbol |> cur
-    | otherwise             = updateContext fnt symbol |> findSymbol prior symbol
-    where fnt :> cur   = S.viewr ctx
-          _   :> prior = S.viewr fnt
+              -> I.Context              -- ^ The new context
+updateContext ctx order symbol = head ctx : updateContext' (take order ctx) symbol
+
+updateContext' :: I.Context -> Int -> I.Context
+updateContext' ctx symbol = foldl' (\a x -> a ++ [findSymbol x symbol]) [] ctx
 
 
 findSymbol :: I.Tree -> Int -> I.Tree
+findSymbol t _
+    | I.null t = I.Empty
 findSymbol t symbol =
     let children = I.getChildren t
         node = binsearch children symbol 0 (V.length children - 1)
