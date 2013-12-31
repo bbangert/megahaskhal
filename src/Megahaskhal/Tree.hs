@@ -45,9 +45,10 @@ updateContext' :: Context -> Int -> Context
 updateContext' ctx symbol = foldl' (\a x -> a ++ [findSymbol x symbol]) [] ctx
 
 -- | Create a context suitable for navigating backwards based on the symbols
--- used in the current reply.
-createBackContext :: Context -> Int -> [Int] -> Context
-createBackContext ctx order lst = foldl' (\_ s -> updateContext ctx order s) [] lst
+-- used in the current reply using a starting tree.
+createBackContext :: Tree -> Int -> [Int] -> Context
+createBackContext t order lst = foldl' (\_ s -> updateContext ctx order s) [] lst
+    where ctx = newContext t order
 
 -- | Indicate if a given tree is empty or not
 null :: Tree -> Bool

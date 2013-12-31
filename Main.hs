@@ -5,7 +5,7 @@ import Control.Monad.State (runState)
 import System.Environment (getArgs)
 import System.Random (StdGen, getStdGen, setStdGen)
 
-import Megahaskhal (loadBrainFromFilename, reply)
+import Megahaskhal (loadBrainFromFilename, reply, getWords)
 
 main = do
     args <- getArgs
@@ -23,6 +23,7 @@ runHal filename = do
             ranGen <- getStdGen
             putStrLn "Enter text: "
             input <- getLine
-            let (output, newGen) = runState (reply brain input) ranGen
+            let phrase = getWords input
+                (output, newGen) = runState (reply brain phrase) ranGen
             putStrLn output
             setStdGen newGen

@@ -1,12 +1,13 @@
 module Megahaskhal (
     loadBrainFromFilename,
     reply,
+    getWords,
     Brain
     ) where
 
 import Control.Monad.State (State, state)
-import Data.Char (toTitle, toLower, toUpper)
-import Data.List (concat, foldl1')
+import Data.Char (toTitle, toLower, toUpper, isAlpha, isDigit)
+import Data.List (concat, foldl1', splitAt)
 import Data.Maybe (catMaybes)
 import Data.Sequence ( (|>), ViewR( (:>) ), ViewL( (:<) ))
 import System.Random (getStdRandom, randomR, StdGen, RandomGen, Random)
@@ -29,6 +30,61 @@ type Replies = [Int]
 type UsedKey = Bool
 type Symbol = Int
 type Order = Int
+
+
+getWords :: String -> [String]
+getWords s = Prelude.map V.toList . _getWords 0 $! V.fromList $ Prelude.map toUpper s
+
+_getWords :: Int -> V.Vector Char -> [V.Vector Char]
+_getWords offset phrase
+    | isBoundary == True =
+        let (word, newPhrase) = V.splitAt offset phrase
+        in if V.length newPhrase == 0 then [word] else word:_getWords 0 newPhrase
+    | otherwise          = _getWords (offset+1) phrase
+    where isBoundary = boundary offset phrase
+
+boundary :: Int -> V.Vector Char -> Bool
+boundary 0 _                                    = False
+boundary position string
+    | position == stLen                         = True
+    where stLen = V.length string
+boundary position string
+    | and [string V.! position == '\'',
+           isAlpha $ string V.! (position-1),
+           position+1 < V.length string,
+           isAlpha $ string V.! (position+1)]   = False
+boundary position string
+    | and [position > 1, curIsAlpha,
+           priorChar == '\'',
+           isAlpha $ string V.! (position-2)]   = False
+    | and [curIsAlpha, not priorAlpha]          = True
+    | and [not curIsAlpha, priorAlpha]          = True
+    where curIsAlpha = isAlpha $ string V.! position
+          priorChar = string V.! (position-1)
+          priorAlpha = isAlpha priorChar
+boundary position string
+    | not $ curIsDigit == priorIsDigit          = True
+    | otherwise                                 = False
+    where curIsDigit = isDigit $ string V.! position
+          priorIsDigit = isDigit $ string V.! (position-1)
+
+-- | Reply to a phrase with a given brain
+reply :: I.Brain                        -- ^ A brain to start with
+      -> [String]                         -- ^ Words to respond to
+      -> State StdGen String            -- ^ Reply words
+reply (I.Brain fTree bTree _ order dict) phrase = do
+    let lookupSymbol = flip S.elemIndexL dict
+        kws          = catMaybes $! Prelude.map lookupSymbol phrase
+        ctx          = newContext fTree order
+    symbol <- seed ctx dict kws
+    (fWords, fSymbols, usedKey) <- processWords ctx dict order kws [] False symbol
+    let minCtx       = min (Prelude.length fWords) order
+        wordsToUse   = reverse $! Prelude.take minCtx fSymbols
+        backCtx      = createBackContext bTree order wordsToUse
+    (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
+    let lowered      = Prelude.map toLower $ foldl1' (++) $! (reverse bWords) ++ fWords
+        titled       = toTitle (head lowered) : tail lowered
+    return $! titled
 
 -- | Seed a first word for the reply words
 seed :: Context -> I.Dictionary -> [Int] -> State StdGen Int
@@ -74,27 +130,6 @@ findWordToUse ctx dict keys replies used symb pos count
                 in findWordToUse ctx dict keys replies used symbol position newCount
     where node   = V.unsafeIndex ctx pos
           symbol = getSymbol node
-
-reply :: I.Brain                        -- ^ A brain to start with
-      -> String                         -- ^ Words to respond to
-      -> State StdGen String            -- ^ Reply words
-reply brain phrase = do
-    let kw           = words . (Prelude.map toUpper) $! phrase
-        dict         = I.getDictionary brain
-        lookupSymbol = flip S.elemIndexL dict
-        kws          = catMaybes $! Prelude.map lookupSymbol kw
-        order        = I.getOrder brain
-        ctx          = newContext (I.getForward brain) order
-    symbol <- seed ctx dict kws
-    (fWords, fSymbols, usedKey) <- processWords ctx dict order kws [] False symbol
-    let backCtx      = newContext (I.getBackward brain) order
-        minCtx       = min (Prelude.length fWords) order
-        wordsToUse   = reverse $! Prelude.take minCtx fSymbols
-        newBackCtx   = createBackContext backCtx order wordsToUse
-    (bWords, bSymbols, _) <- autoBabble newBackCtx dict order kws fSymbols usedKey
-    let lowered      = Prelude.map toLower $ foldl1' (++) $! (reverse bWords) ++ fWords
-        titled       = toTitle (head lowered) : tail lowered
-    return $! titled
 
 -- | Babble with a given context.
 autoBabble :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey
