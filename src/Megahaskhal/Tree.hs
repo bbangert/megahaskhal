@@ -15,7 +15,6 @@ module Megahaskhal.Tree (
 
 import Prelude hiding (null)
 import Data.List (foldl', dropWhileEnd)
-import Data.Maybe (catMaybes)
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as V
 
@@ -47,8 +46,8 @@ updateContext' ctx symbol = foldl' (\a x -> a ++ [findSymbol x symbol]) [] ctx
 
 -- | Create a context suitable for navigating backwards based on the symbols
 -- used in the current reply.
-createBackContext :: Context -> Int -> [Maybe Int] -> Context
-createBackContext ctx order lst = foldl' (\_ s -> updateContext ctx order s) [] $ catMaybes lst
+createBackContext :: Context -> Int -> [Int] -> Context
+createBackContext ctx order lst = foldl' (\_ s -> updateContext ctx order s) [] lst
 
 -- | Indicate if a given tree is empty or not
 null :: Tree -> Bool
