@@ -6,7 +6,7 @@ module Megahaskhal (
     ) where
 
 import Control.Monad.State (State, state)
-import Data.Char (toTitle, toLower, toUpper, isAlpha, isDigit)
+import Data.Char (toTitle, toLower, toUpper, isAlpha, isAlphaNum, isDigit)
 import Data.List (concat, foldl1', splitAt)
 import Data.Maybe (catMaybes)
 import Data.Sequence ( (|>), ViewR( (:>) ), ViewL( (:<) ))
@@ -31,9 +31,15 @@ type UsedKey = Bool
 type Symbol = Int
 type Order = Int
 
-
+-- | Split a string of words into a proper word-set for the reply
 getWords :: String -> [String]
-getWords s = Prelude.map V.toList . _getWords 0 $! V.fromList $ Prelude.map toUpper s
+getWords "" = []
+getWords s
+    | isAlphaNum $! head lastWord       = phrase ++ ["."]
+    | not $ last lastWord `elem` "!.?"  = init phrase ++ ["."]
+    | otherwise                         = phrase
+    where phrase = Prelude.map V.toList . _getWords 0 $! V.fromList $ Prelude.map toUpper s
+          lastWord = last phrase
 
 _getWords :: Int -> V.Vector Char -> [V.Vector Char]
 _getWords offset phrase
