@@ -23,7 +23,7 @@ data Tree = Empty | Tree {
     getSymbol :: !Int
     , getUsage :: !Int
     , getCount :: !Int
-    , getChildren :: Vector Tree
+    , getChildren :: !(Vector Tree)
     } deriving (Eq, Show)
 
 type Context = [Tree]

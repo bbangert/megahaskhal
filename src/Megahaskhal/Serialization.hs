@@ -44,7 +44,7 @@ parseTree = do
     count <- G.getWord16le
     branch <- G.getWord16le
     children <- V.replicateM (fromIntegral branch) parseTree
-    return $! Tree (fromIntegral symbol :: Int) (fromIntegral usage :: Int) (fromIntegral count :: Int) children
+    return $ Tree (fromIntegral symbol) (fromIntegral usage) (fromIntegral count) children
 
 parseWord :: G.Get String
 parseWord = do
