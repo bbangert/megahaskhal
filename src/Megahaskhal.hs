@@ -7,10 +7,9 @@ module Megahaskhal (
 
 import Control.Monad.State (State, state)
 import Data.Char (toTitle, toLower, toUpper, isAlpha, isAlphaNum, isDigit)
-import Data.List (concat, foldl1', splitAt)
+import Data.List (foldl1')
 import Data.Maybe (mapMaybe)
-import System.Random (getStdRandom, randomR, StdGen, RandomGen, Random)
-import qualified Data.Map.Strict as M
+import System.Random (randomR, StdGen, Random)
 import qualified Data.Sequence as S
 import qualified Data.Vector as V
 
@@ -37,7 +36,7 @@ getWords s
     | isAlphaNum $ head lastWord       = phrase ++ ["."]
     | last lastWord `notElem` "!.?"  = init phrase ++ ["."]
     | otherwise                         = phrase
-    where phrase = Prelude.map V.toList . _getWords 0 $ V.fromList $ Prelude.map toUpper s
+    where phrase = map V.toList . _getWords 0 $ V.fromList $ map toUpper s
           lastWord = last phrase
 
 _getWords :: Int -> V.Vector Char -> [V.Vector Char]
@@ -82,25 +81,25 @@ reply (I.Brain fTree bTree _ order dict) phrase = do
         ctx          = newContext fTree order
     symbol <- seed ctx dict kws
     (fWords, fSymbols, usedKey) <- processWords ctx dict order kws [] False symbol
-    let minCtx       = min (Prelude.length fWords) order
-        wordsToUse   = reverse $ Prelude.take minCtx fSymbols
+    let minCtx       = min (length fWords) order
+        wordsToUse   = reverse $ take minCtx fSymbols
         backCtx      = createBackContext bTree order wordsToUse
-    (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
-    let lowered      = Prelude.map toLower $ foldl1' (++) $ reverse bWords ++ fWords
+    (bWords, _bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
+    let lowered      = map toLower $ foldl1' (++) $ reverse bWords ++ fWords
         titled       = toTitle (head lowered) : tail lowered
     return titled
 
 -- | Seed a first word for the reply words
 seed :: Context -> I.Dictionary -> [Int] -> State StdGen Int
-seed ctx dict []
+seed ctx _dict []
     | childLength == 0  = return 0
     | otherwise         = do
         childIndex <- state $ randomR (0, childLength-1)
         return $ getSymbol $ V.unsafeIndex children childIndex
     where children      = getChildren $ head ctx
           childLength   = V.length children
-seed ctx dict keywords = do
-    ind <- state $ randomR (0, Prelude.length keywords - 1)
+seed _ctx _dict keywords = do
+    ind <- state $ randomR (0, length keywords - 1)
     return $ keywords !! ind
 
 -- | Return a random word from the current context.
@@ -121,7 +120,7 @@ findWordToUse :: V.Vector Tree -> I.Dictionary -> Keywords -> Replies -> UsedKey
               -> Int                    -- ^ Current position
               -> Int                    -- ^ Remaining times to search
               -> (Symbol, UsedKey)
-findWordToUse ctx dict keys replies used symb pos count
+findWordToUse ctx dict keys replies used _symb pos count
     | symbol `elem` keys && symbol `notElem` replies &&
         (used || not (I.isAuxWord $ S.index dict symbol)) = (symbol, True)
     | otherwise =

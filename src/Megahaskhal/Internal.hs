@@ -1,18 +1,26 @@
-module Megahaskhal.Internal where
+module Megahaskhal.Internal
+       ( rawAuxWords
+       , auxWords
+       , isAuxWord
+       , newBrainOrder
+       , wordCmp
+       , Brain(..)
+       , Dictionary
+       ) where
 
-import Data.ByteString.Lazy (ByteString)
 import Data.Sequence (Seq)
-import System.Random (StdGen)
 import qualified Data.Map.Strict as M
-import qualified Data.Vector as V
 import Megahaskhal.Tree (Tree)
 
 type Dictionary = Seq String
 
+rawAuxWords :: [String]
 rawAuxWords = [
     "DISLIKE", "HE", "HER", "HERS", "HIM", "HIS", "I", "I'D", "I'LL", "I'M",
     "I'VE", "LIKE", "ME", "MY", "MYSELF", "ONE", "SHE", "THREE", "TWO", "YOU",
     "YOU'D", "YOU'LL", "YOU'RE", "YOU'VE", "YOUR", "YOURSELF"]
+
+auxWords :: M.Map String Bool
 auxWords = M.fromList $ zip rawAuxWords $ repeat True
 
 data Brain = Brain {
@@ -24,11 +32,10 @@ data Brain = Brain {
 } deriving (Show)
 
 isAuxWord :: String -> Bool
-isAuxWord = flip M.member auxWords
+isAuxWord = (`M.member` auxWords)
 
 newBrainOrder :: Brain -> Int -> Brain
-newBrainOrder ob ord =
-    Brain (getForward ob) (getBackward ob) (getCookie ob) ord (getDictionary ob)
+newBrainOrder ob ord = ob { getOrder = ord }
 
 wordCmp :: String -> String -> Int
 wordCmp x y
