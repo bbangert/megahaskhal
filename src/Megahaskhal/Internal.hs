@@ -31,5 +31,7 @@ newBrainOrder ob ord =
     Brain (getForward ob) (getBackward ob) (getCookie ob) ord (getDictionary ob)
 
 wordCmp :: String -> String -> Int
-wordCmp x y = if x == y then 0 else
-    if length x < length y then -1 else 1
+wordCmp x y
+    | x == y = 0
+    | length x < length y = -1
+    | otherwise = 1

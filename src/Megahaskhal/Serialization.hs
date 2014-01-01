@@ -24,7 +24,7 @@ loadBrainFromFilename fileName =
             leftCount = V.length $ getChildren forward
             rightCount = V.length $ getChildren backward
         print (cookie, order, leftCount, rightCount, S.length dictWords)
-        return $! Just $ Brain forward backward (LC.unpack cookie) (fromIntegral order) dictWords
+        return $ Just $ Brain forward backward (LC.unpack cookie) (fromIntegral order) dictWords
     )
 
 parseModel :: G.Get (BL.ByteString, Word8, Tree, Tree, Dictionary)
@@ -35,7 +35,7 @@ parseModel = do
     rightTree <- parseTree
     dictLength <- G.getWord32le
     dictWords <- S.replicateM (fromIntegral dictLength) parseWord
-    return $! (cookie, order, leftTree, rightTree, dictWords)
+    return (cookie, order, leftTree, rightTree, dictWords)
 
 parseTree :: G.Get Tree
 parseTree = do
@@ -50,4 +50,4 @@ parseWord :: G.Get String
 parseWord = do
     wordLength <- G.getWord8
     rawWord <- replicateM (fromIntegral wordLength) G.getWord8
-    return $! decode rawWord
+    return $ decode rawWord

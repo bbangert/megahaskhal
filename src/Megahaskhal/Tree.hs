@@ -31,7 +31,7 @@ type Context = [Tree]
 -- | Create a new context initialized with a tree for the given order
 -- size. Empty tree's will fill in order slots.
 newContext :: Tree -> Int -> Context
-newContext t o = t : take o (repeat Empty)
+newContext t n = t : replicate n Empty
 
 -- | Updates the context by creating a new context that has the symbol located
 -- in the context where possible that will be 'order+!' left.
@@ -47,7 +47,7 @@ updateContext' ctx symbol = foldl' (\a x -> a ++ [findSymbol x symbol]) [] ctx
 -- | Create a context suitable for navigating backwards based on the symbols
 -- used in the current reply using a starting tree.
 createBackContext :: Tree -> Int -> [Int] -> Context
-createBackContext t order lst = foldl' (\_ s -> updateContext ctx order s) [] lst
+createBackContext t order = foldl' (\_ s -> updateContext ctx order s) []
     where ctx = newContext t order
 
 -- | Indicate if a given tree is empty or not
