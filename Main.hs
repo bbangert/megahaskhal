@@ -3,27 +3,29 @@ module Main where
 import Control.Monad (forever)
 import Control.Monad.State (runState)
 import System.Environment (getArgs)
-import System.Random (StdGen, getStdGen, setStdGen)
+import System.Random (getStdGen, setStdGen)
+import System.Exit (exitFailure)
+import Megahaskhal (Brain, loadBrainFromFilename, reply, getWords)
 
-import Megahaskhal (loadBrainFromFilename, reply, getWords)
+die :: String -> IO ()
+die s = putStrLn s >> exitFailure
 
+main :: IO ()
 main = do
     args <- getArgs
-    if length args == 0
-        then putStrLn "Pass in a file name for the brain."
-        else let (filename:_) = args in runHal filename
+    case args of
+      [filename] ->
+        loadBrainFromFilename filename >>=
+          maybe (die "Unable to load from file.") runHal
+      _ ->
+        die "Pass in a file name for the brain."
 
-
-runHal :: String -> IO ()
-runHal filename = do
-    result <- loadBrainFromFilename filename
-    case result of
-        Nothing -> putStrLn "Unable to load from file."
-        Just brain -> forever $ do
-            ranGen <- getStdGen
-            putStrLn "Enter text: "
-            input <- getLine
-            let phrase = getWords input
-                (output, newGen) = runState (reply brain phrase) ranGen
-            putStrLn output
-            setStdGen newGen
+runHal :: Brain -> IO ()
+runHal brain = forever $ do
+  ranGen <- getStdGen
+  putStrLn "Enter text: "
+  input <- getLine
+  let phrase = getWords input
+      (output, newGen) = runState (reply brain phrase) ranGen
+  putStrLn output
+  setStdGen newGen
