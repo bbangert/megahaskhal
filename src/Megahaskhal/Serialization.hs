@@ -5,6 +5,7 @@ module Megahaskhal.Serialization (
 import Control.Monad (replicateM)
 import Data.Word
 import System.IO  (withFile, IOMode( ReadMode ))
+import Codec.Binary.UTF8.String (decode)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.Binary.Get as G
@@ -48,5 +49,5 @@ parseTree = do
 parseWord :: G.Get String
 parseWord = do
     wordLength <- G.getWord8
-    word <- G.getLazyByteString $ fromIntegral wordLength
-    return $! LC.unpack word
+    rawWord <- replicateM (fromIntegral wordLength) G.getWord8
+    return $! decode rawWord

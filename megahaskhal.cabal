@@ -25,6 +25,7 @@ executable megahaskhal
         random >= 1.0.1.1,
         mtl >= 2.1.2,
         vector <= 0.10.0.1,
+        utf8-string >= 0.3,
         megahaskhal >= 0.1.0.0
     ghc-options: -O2
 
@@ -46,7 +47,8 @@ Library
     bytestring >= 0.10.0.2,
     random >= 1.0.1.1,
     mtl >= 2.1.2,
-    vector <= 0.10.0.1
+    vector <= 0.10.0.1,
+    utf8-string >= 0.3
 
   Hs-source-dirs:
     src
