@@ -9,7 +9,6 @@ import Control.Monad.State (State, state)
 import Data.Char (toTitle, toLower, toUpper, isAlpha, isAlphaNum, isDigit)
 import Data.List (concat, foldl1', splitAt)
 import Data.Maybe (catMaybes)
-import Data.Sequence ( (|>), ViewR( (:>) ), ViewL( (:<) ))
 import System.Random (getStdRandom, randomR, StdGen, RandomGen, Random)
 import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
