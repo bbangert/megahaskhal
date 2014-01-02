@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import Control.Monad (forever)
@@ -6,9 +7,11 @@ import System.Environment (getArgs)
 import System.Random (getStdGen, setStdGen)
 import System.Exit (exitFailure)
 import Megahaskhal (Brain, loadBrainFromFilename, reply, getWords)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
-die :: String -> IO ()
-die s = putStrLn s >> exitFailure
+die :: T.Text -> IO ()
+die s = T.putStrLn s >> exitFailure
 
 main :: IO ()
 main = do
@@ -23,9 +26,9 @@ main = do
 runHal :: Brain -> IO ()
 runHal brain = forever $ do
   ranGen <- getStdGen
-  putStrLn "Enter text: "
-  input <- getLine
+  T.putStrLn "Enter text: "
+  input <- T.getLine
   let phrase = getWords input
       (output, newGen) = runState (reply brain phrase) ranGen
-  putStrLn output
+  T.putStrLn output
   setStdGen newGen

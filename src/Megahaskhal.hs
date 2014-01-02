@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Megahaskhal (
     loadBrainFromFilename,
     reply,
@@ -6,12 +7,13 @@ module Megahaskhal (
     ) where
 
 import Control.Monad.State (State, state)
-import Data.Char (toTitle, toLower, toUpper, isAlpha, isAlphaNum, isDigit)
-import Data.List (foldl1')
+import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
 import Data.Maybe (mapMaybe)
 import System.Random (randomR, StdGen, Random)
 import qualified Data.Sequence as S
 import qualified Data.Vector as V
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Megahaskhal.Serialization (loadBrainFromFilename)
 import Megahaskhal.Tree (
@@ -29,52 +31,37 @@ type UsedKey = Bool
 type Symbol = Int
 type Order = Int
 
--- | Split a string of words into a proper word-set for the reply
-getWords :: String -> [String]
-getWords "" = []
-getWords s
-    | isAlphaNum $ head lastWord       = phrase ++ ["."]
-    | last lastWord `notElem` "!.?"  = init phrase ++ ["."]
-    | otherwise                         = phrase
-    where phrase = map V.toList . _getWords 0 $ V.fromList $ map toUpper s
-          lastWord = last phrase
-
-_getWords :: Int -> V.Vector Char -> [V.Vector Char]
-_getWords offset phrase
-    | isBoundary = let (word, newPhrase) = V.splitAt offset phrase
-        in if V.length newPhrase == 0 then [word] else word:_getWords 0 newPhrase
-    | otherwise = _getWords (offset+1) phrase
-    where isBoundary = boundary offset phrase
-
-boundary :: Int -> V.Vector Char -> Bool
-boundary 0 _                                    = False
-boundary position string
-    | position == stLen                         = True
-    where stLen = V.length string
-boundary position string
-    | and [string V.! position == '\'',
-           isAlpha $ string V.! (position-1),
-           position+1 < V.length string,
-           isAlpha $ string V.! (position+1)]   = False
-boundary position string
-    | and [position > 1, curIsAlpha,
-           priorChar == '\'',
-           isAlpha $ string V.! (position-2)]   = False
-    | curIsAlpha && not priorAlpha              = True
-    | not curIsAlpha && priorAlpha              = True
-    where curIsAlpha = isAlpha $ string V.! position
-          priorChar = string V.! (position-1)
-          priorAlpha = isAlpha priorChar
-boundary position string
-    | curIsDigit /= priorIsDigit                = True
-    | otherwise                                 = False
-    where curIsDigit = isDigit $ string V.! position
-          priorIsDigit = isDigit $ string V.! (position-1)
+-- Rules for tokenization:
+-- Four character classes: alpha, digit, apostrophe, and other
+-- If the character class changed from the previous to current character, then
+-- it is a boundary. The only special case is alpha -> apostrophe -> alpha,
+-- which is not considered to be a boundary (it's considered to be alpha).
+-- If the last word is alphanumeric then add a last word of ".", otherwise
+-- replace the last word with "." unless it already ends with one of "!.?".
+getWords :: Text -> [Text]
+getWords = fixup . T.groupBy sameClass . T.toUpper
+  where
+    firstAlpha = isAlpha . T.head
+    -- find boundaries
+    sameClass a b = isAlpha a == isAlpha b && isDigit a == isDigit b
+    -- fix apostrophes
+    fixup (a:b:c:rest)
+      | firstAlpha a && b == "\'" && firstAlpha c =
+        fixup (T.concat [a, b, c] : rest)
+    -- fix the last word
+    fixup (a:[])
+      | isAlphaNum (T.head a) = [a, "."]
+      | T.last a `elem` "!.?" = [a]
+      | otherwise             = ["."]
+    -- simple recursive case
+    fixup (a:rest) = a : fixup rest
+    -- handle empty input
+    fixup [] = []
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
-      -> [String]                         -- ^ Words to respond to
-      -> State StdGen String            -- ^ Reply words
+      -> [Text]                         -- ^ Words to respond to
+      -> State StdGen Text              -- ^ Reply words
 reply (I.Brain fTree bTree _ order dict) phrase = do
     let lookupSymbol = flip S.elemIndexL dict
         kws          = mapMaybe lookupSymbol phrase
@@ -85,8 +72,10 @@ reply (I.Brain fTree bTree _ order dict) phrase = do
         wordsToUse   = reverse $ take minCtx fSymbols
         backCtx      = createBackContext bTree order wordsToUse
     (bWords, _bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
-    let lowered      = map toLower $ foldl1' (++) $ reverse bWords ++ fWords
-        titled       = toTitle (head lowered) : tail lowered
+    let lowered      = T.toLower . T.concat $ reverse bWords ++ fWords
+        titled = case T.uncons lowered of
+          Just (c, t) -> toUpper c `T.cons` t
+          _           -> lowered
     return titled
 
 -- | Seed a first word for the reply words
@@ -135,13 +124,13 @@ findWordToUse ctx dict keys replies used _symb pos count
 
 -- | Babble with a given context.
 autoBabble :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey
-           -> State StdGen ([String], [Int], UsedKey)
+           -> State StdGen ([Text], [Int], UsedKey)
 autoBabble ctx dict order keywords replies usedKey = do
     (symbol, usedKey') <- babble ctx dict keywords replies usedKey
     processWords ctx dict order keywords replies usedKey' symbol
 
 processWords :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey -> Symbol
-             -> State StdGen ([String], [Int], UsedKey)
+             -> State StdGen ([Text], [Int], UsedKey)
 processWords _ _ _ _ _ uK 0 = return ([], [], uK)
 processWords _ _ _ _ _ uK 1 = return ([], [], uK)
 processWords ctx dict order keywords replies usedKey symbol = do

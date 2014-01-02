@@ -30,7 +30,7 @@ executable megahaskhal
     random >= 1.0.1.1,
     mtl >= 2.1.2,
     vector <= 0.10.0.1,
-    utf8-string >= 0.3,
+    text >= 0.11,
     megahaskhal >= 0.1.0.0
   ghc-options: -O2 -Wall -threaded -rtsopts
 
@@ -58,7 +58,7 @@ Library
     random >= 1.0.1.1,
     mtl >= 2.1.2,
     vector <= 0.10.0.1,
-    utf8-string >= 0.3
+    text >= 0.11
 
   Hs-source-dirs:
     src
