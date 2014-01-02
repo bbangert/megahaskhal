@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Megahaskhal (
     loadBrainFromFilename,
     reply,
@@ -13,8 +15,6 @@ import System.Random (getStdRandom, randomR, StdGen, RandomGen, Random)
 import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
 import qualified Data.Text as T
-import qualified Data.Attoparsec.Text as A
-import qualified Data.Attoparsec.Combinator as C
 import qualified Data.Vector as V
 
 import Megahaskhal.Serialization (loadBrainFromFilename)
@@ -33,27 +33,32 @@ type UsedKey = Bool
 type Symbol = Int
 type Order = Int
 
-parsePhrase :: A.Parser [T.Text]
-parsePhrase = C.manyTill (C.choice [apostWord, word, number, other]) A.endOfInput
-    where
-        word = A.takeWhile1 isAlpha
-        apostWord = do
-            f <- word
-            a <- A.string $ T.pack "\'"
-            e <- word
-            return $ T.concat [f, a, e]
-        number = A.takeWhile1 isDigit
-        other = A.takeWhile1 (not . isAlphaNum)
-
-getWords :: String -> [T.Text]
-getWords "" = []
-getWords s
-    | isAlphaNum $ T.head lastWord    = phrase ++ period
-    | T.last lastWord `notElem` "!.?" = init phrase ++ period
-    | otherwise                       = phrase
-    where (Right phrase) = A.parseOnly parsePhrase $ T.toUpper $ T.pack s
-          lastWord = last phrase
-          period = [T.pack "."]
+-- Rules for tokenization:
+-- Four character classes: alpha, digit, apostrophe, and other
+-- If the character class changed from the previous to current character, then
+-- it is a boundary. The only special case is alpha -> apostrophe -> alpha,
+-- which is not considered to be a boundary (it's considered to be alpha).
+-- If the last word is alphanumeric then add a last word of ".", otherwise
+-- replace the last word with "." unless it already ends with one of "!.?".
+getWords :: T.Text -> [T.Text]
+getWords = fixup . T.groupBy sameClass . T.toUpper
+  where
+    firstAlpha = isAlpha . T.head
+    -- find boundaries
+    sameClass a b = isAlpha a == isAlpha b && isDigit a == isDigit b
+    -- fix apostrophes
+    fixup (a:b:c:rest)
+      | firstAlpha a && b == "\'" && firstAlpha c =
+        fixup (T.concat [a, b, c] : rest)
+    -- fix the last word
+    fixup (a:[])
+      | isAlphaNum (T.head a) = [a, "."]
+      | T.last a `elem` "!.?" = [a]
+      | otherwise             = ["."]
+    -- simple recursive case
+    fixup (a:rest) = a : fixup rest
+    -- handle empty input
+    fixup [] = []
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with

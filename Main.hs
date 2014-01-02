@@ -2,6 +2,7 @@ module Main where
 
 import Control.Monad (forever)
 import Control.Monad.State (runState)
+import Data.Text (pack)
 import System.Environment (getArgs)
 import System.Random (StdGen, getStdGen, setStdGen)
 
@@ -23,7 +24,7 @@ runHal filename = do
             ranGen <- getStdGen
             putStrLn "Enter text: "
             input <- getLine
-            let phrase = getWords input
+            let phrase = getWords $ pack input
                 (output, newGen) = runState (reply brain phrase) ranGen
             print output
             setStdGen newGen
