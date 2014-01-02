@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Megahaskhal.Internal
-       ( rawAuxWords
-       , auxWords
+       ( auxWords
        , isAuxWord
        , newBrainOrder
        , Brain(..)
@@ -10,19 +9,17 @@ module Megahaskhal.Internal
 
 import Data.Sequence (Seq)
 import Data.Text (Text)
-import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 import Megahaskhal.Tree (Tree)
 
 type Dictionary = Seq Text
 
-rawAuxWords :: [Text]
-rawAuxWords = [
-    "DISLIKE", "HE", "HER", "HERS", "HIM", "HIS", "I", "I'D", "I'LL", "I'M",
-    "I'VE", "LIKE", "ME", "MY", "MYSELF", "ONE", "SHE", "THREE", "TWO", "YOU",
-    "YOU'D", "YOU'LL", "YOU'RE", "YOU'VE", "YOUR", "YOURSELF"]
-
-auxWords :: M.Map Text Bool
-auxWords = M.fromList $ zip rawAuxWords $ repeat True
+auxWords :: S.Set Text
+auxWords =
+  S.fromList [ "DISLIKE", "HE", "HER", "HERS", "HIM", "HIS", "I", "I'D"
+             , "I'LL", "I'M", "I'VE", "LIKE", "ME", "MY", "MYSELF", "ONE"
+             , "SHE", "THREE", "TWO", "YOU", "YOU'D", "YOU'LL", "YOU'RE"
+             , "YOU'VE", "YOUR", "YOURSELF" ]
 
 data Brain = Brain {
     getForward :: Tree
@@ -33,7 +30,7 @@ data Brain = Brain {
 } deriving (Show)
 
 isAuxWord :: Text -> Bool
-isAuxWord = (`M.member` auxWords)
+isAuxWord = (`S.member` auxWords)
 
 newBrainOrder :: Brain -> Int -> Brain
 newBrainOrder ob ord = ob { getOrder = ord }

@@ -46,13 +46,12 @@ parseModel =
          <*> lprefix w32 S.replicateM (w8 >>= parseText) -- dictWords
 
 parseTree :: G.Get Tree
-parseTree =
+parseTree = (return $!) =<<
   Tree <$> w16 -- symbol
        <*> w32 -- usage
        <*> w16 -- count
        <*> lprefix w16 V.replicateM parseTree -- children
 
 parseText :: Int -> G.Get T.Text
-parseText n = do
-  bs <- G.getByteString n
-  return $! T.decodeUtf8With T.lenientDecode bs
+parseText n = (return $!) =<<
+  T.decodeUtf8With T.lenientDecode <$> G.getByteString n

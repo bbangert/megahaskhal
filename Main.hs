@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Control.Applicative ((<$>))
 import Control.Monad (forever)
 import Control.Monad.State (runState)
 import System.Environment (getArgs)
@@ -25,10 +26,8 @@ main = do
 
 runHal :: Brain -> IO ()
 runHal brain = forever $ do
-  ranGen <- getStdGen
   T.putStrLn "Enter text: "
-  input <- T.getLine
-  let phrase = getWords input
-      (output, newGen) = runState (reply brain phrase) ranGen
+  phrase <- getWords <$> T.getLine
+  (output, newGen) <- runState (reply brain phrase) <$> getStdGen
   T.putStrLn output
   setStdGen newGen

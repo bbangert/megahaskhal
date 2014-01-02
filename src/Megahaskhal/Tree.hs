@@ -20,10 +20,10 @@ import qualified Data.Vector as V
 
 
 data Tree = Empty | Tree {
-    getSymbol :: !Int
-    , getUsage :: !Int
-    , getCount :: !Int
-    , getChildren :: !(Vector Tree)
+    getSymbol     :: {-# UNPACK #-} !Int
+    , getUsage    :: {-# UNPACK #-} !Int
+    , getCount    :: {-# UNPACK #-} !Int
+    , getChildren :: {-# UNPACK #-} !(Vector Tree)
     } deriving (Eq, Show)
 
 type Context = [Tree]
@@ -36,8 +36,8 @@ newContext t n = t : replicate n Empty
 -- | Updates the context by creating a new context that has the symbol located
 -- in the context where possible that will be 'order+!' left.
 updateContext :: Context              -- ^ Front portion of context to update
-              -> Int                    -- ^ Order
-              -> Int                    -- ^ Symbol to locate in the tree
+              -> Int                  -- ^ Order
+              -> Int                  -- ^ Symbol to locate in the tree
               -> Context              -- ^ The new context
 updateContext ctx order symbol = head ctx : updateContext' (take (order-1) ctx) symbol
 
