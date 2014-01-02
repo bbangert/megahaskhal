@@ -1,38 +1,36 @@
-module Megahaskhal.Internal where
+{-# LANGUAGE OverloadedStrings #-}
+module Megahaskhal.Internal
+       ( auxWords
+       , isAuxWord
+       , newBrainOrder
+       , Brain(..)
+       , Dictionary
+       ) where
 
-import Data.ByteString.Lazy (ByteString)
 import Data.Sequence (Seq)
-import System.Random (StdGen)
-import qualified Data.Map.Strict as M
-import qualified Data.Vector as V
-import qualified Data.Text as T
+import Data.Text (Text)
+import qualified Data.Set as S
 import Megahaskhal.Tree (Tree)
 
-type Dictionary = Seq T.Text
+type Dictionary = Seq Text
 
-rawAuxWords = [
-    "DISLIKE", "HE", "HER", "HERS", "HIM", "HIS", "I", "I'D", "I'LL", "I'M",
-    "I'VE", "LIKE", "ME", "MY", "MYSELF", "ONE", "SHE", "THREE", "TWO", "YOU",
-    "YOU'D", "YOU'LL", "YOU'RE", "YOU'VE", "YOUR", "YOURSELF"]
-auxWords = M.fromList $ zip (map T.pack rawAuxWords) $ repeat True
+auxWords :: S.Set Text
+auxWords =
+  S.fromList [ "DISLIKE", "HE", "HER", "HERS", "HIM", "HIS", "I", "I'D"
+             , "I'LL", "I'M", "I'VE", "LIKE", "ME", "MY", "MYSELF", "ONE"
+             , "SHE", "THREE", "TWO", "YOU", "YOU'D", "YOU'LL", "YOU'RE"
+             , "YOU'VE", "YOUR", "YOURSELF" ]
 
 data Brain = Brain {
     getForward :: Tree
     , getBackward :: Tree
-    , getCookie :: String
+    , getCookie :: Text
     , getOrder :: Int
     , getDictionary :: Dictionary
-} deriving (Show)
+    } deriving (Show)
 
-isAuxWord :: T.Text -> Bool
-isAuxWord = flip M.member auxWords
+isAuxWord :: Text -> Bool
+isAuxWord = (`S.member` auxWords)
 
 newBrainOrder :: Brain -> Int -> Brain
-newBrainOrder ob ord =
-    Brain (getForward ob) (getBackward ob) (getCookie ob) ord (getDictionary ob)
-
-wordCmp :: String -> String -> Int
-wordCmp x y
-    | x == y = 0
-    | length x < length y = -1
-    | otherwise = 1
+newBrainOrder ob ord = ob { getOrder = ord }

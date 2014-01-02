@@ -1,3 +1,9 @@
-cabal.sandbox.config
-.cabal-sandbox/
+/cabal.sandbox.config
+/.cabal-sandbox
 *.swp
+*.brn
+/dist
+/megahaskhal.aux
+/megahaskhal.hp
+/megahaskhal.prof
+/megahaskhal.ps

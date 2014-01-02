@@ -1,30 +1,53 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Control.Monad (forever)
+import Data.List (foldl')
+import Control.Applicative ((<$>))
 import Control.Monad.State (runState)
 import Data.Text (pack)
 import System.Environment (getArgs)
-import System.Random (StdGen, getStdGen, setStdGen)
+import System.Random (getStdGen, StdGen, mkStdGen)
+import System.Exit (exitFailure)
+import Megahaskhal (Brain, loadBrainFromFilename, reply, getWords)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import System.Console.GetOpt (getOpt, ArgOrder(..), ArgDescr(..), OptDescr(..))
 
-import Megahaskhal (loadBrainFromFilename, reply, getWords)
+die :: T.Text -> IO ()
+die s = T.putStrLn s >> exitFailure
 
+data Flags = Flags { fGetStdGen :: IO StdGen }
+
+defaultFlags :: Flags
+defaultFlags = Flags { fGetStdGen = getStdGen }
+
+options :: [OptDescr (Flags -> Flags)]
+options = [ Option "s" ["seed"] (ReqArg updateSeed "SEED") "set prng SEED"
+          ]
+  where
+    updateSeed d flags = case reads d of
+      [(n, "")] -> flags { fGetStdGen = return (mkStdGen n) }
+      -- ignore invalid seeds, might make sense to change this around to
+      -- show errors
+      _         -> flags
+
+main :: IO ()
 main = do
-    args <- getArgs
-    if length args == 0
-        then putStrLn "Pass in a file name for the brain."
-        else let (filename:_) = args in runHal filename
+    (makeFlags, args, errs) <- getOpt Permute options <$> getArgs
+    let flags = foldl' (flip ($)) defaultFlags makeFlags
+    gen <- fGetStdGen flags
+    case (args, errs) of
+      ([filename], []) ->
+        loadBrainFromFilename filename >>=
+          maybe (die "Unable to load from file.") (`runHal` gen)
+      _ -> do
+        mapM_ putStrLn errs
+        die "Pass in a file name for the brain."
 
-
-runHal :: String -> IO ()
-runHal filename = do
-    result <- loadBrainFromFilename filename
-    case result of
-        Nothing -> putStrLn "Unable to load from file."
-        Just brain -> forever $ do
-            ranGen <- getStdGen
-            putStrLn "Enter text: "
-            input <- getLine
-            let phrase = getWords $ pack input
-                (output, newGen) = runState (reply brain phrase) ranGen
-            print output
-            setStdGen newGen
+runHal :: Brain -> StdGen -> IO ()
+runHal brain gen = do
+  T.putStrLn "Enter text: "
+  phrase <- getWords <$> T.getLine
+  let (output, newGen) = runState (reply brain phrase) gen
+  T.putStrLn output
+  runHal brain newGen

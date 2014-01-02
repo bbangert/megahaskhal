@@ -1,55 +1,57 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Megahaskhal.Serialization (
     loadBrainFromFilename,
     ) where
 
-import Control.Monad (replicateM)
-import Data.Word
 import System.IO  (withFile, IOMode( ReadMode ))
-import Codec.Binary.UTF8.String (decode)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.Encoding.Error as T
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.Binary.Get as G
 import qualified Data.Sequence as S
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import qualified Data.Vector as V
+import Control.Applicative ((<$>), (<*>))
 
 import Megahaskhal.Internal (Brain (Brain), Dictionary)
 import Megahaskhal.Tree (Tree (Tree), getChildren)
 
+w8, w16, w32 :: G.Get Int
+w8 = fromIntegral <$> G.getWord8
+w16 = fromIntegral <$> G.getWord16le
+w32 = fromIntegral <$> G.getWord32le
+
+lprefix :: Monad m => m Int -> (Int -> m a -> m b) -> m a -> m b
+lprefix len rep action = flip rep action =<< len
+
 loadBrainFromFilename :: String -> IO (Maybe Brain)
 loadBrainFromFilename "" = return Nothing
-loadBrainFromFilename fileName =
-    withFile fileName ReadMode (\handle -> do
-        contents <- BL.hGetContents handle
-        let (cookie, order, forward, backward, dictWords) = G.runGet parseModel contents
-            leftCount = V.length $ getChildren forward
-            rightCount = V.length $ getChildren backward
-        print (cookie, order, leftCount, rightCount, S.length dictWords)
-        return $ Just $ Brain forward backward (LC.unpack cookie) (fromIntegral order) dictWords
-    )
+loadBrainFromFilename fileName = withFile fileName ReadMode parseFile
+  where
+    parseFile handle =
+      mkBrain =<< G.runGet parseModel <$> BL.hGetContents handle
+    mkBrain (cookie, order, forward, backward, dictWords) = do
+      print (cookie, order, leftCount, rightCount, S.length dictWords)
+      return . Just $ Brain forward backward cookie order dictWords
+      where
+        leftCount = V.length $ getChildren forward
+        rightCount = V.length $ getChildren backward
 
-parseModel :: G.Get (BL.ByteString, Word8, Tree, Tree, Dictionary)
-parseModel = do
-    cookie <- G.getLazyByteString 9
-    order <- G.getWord8
-    leftTree <- parseTree
-    rightTree <- parseTree
-    dictLength <- G.getWord32le
-    dictWords <- S.replicateM (fromIntegral dictLength) parseWord
-    return (cookie, order, leftTree, rightTree, dictWords)
+parseModel :: G.Get (T.Text, Int, Tree, Tree, Dictionary)
+parseModel =
+  (,,,,) <$> parseText 9 -- cookie
+         <*> w8          -- order
+         <*> parseTree   -- leftTree
+         <*> parseTree   -- rightTree
+         <*> lprefix w32 S.replicateM (w8 >>= parseText) -- dictWords
 
 parseTree :: G.Get Tree
-parseTree = do
-    symbol <- G.getWord16le
-    usage <- G.getWord32le
-    count <- G.getWord16le
-    branch <- G.getWord16le
-    children <- V.replicateM (fromIntegral branch) parseTree
-    return $! Tree (fromIntegral symbol :: Int) (fromIntegral usage :: Int) (fromIntegral count :: Int) children
+parseTree = (return $!) =<<
+  Tree <$> w16 -- symbol
+       <*> w32 -- usage
+       <*> w16 -- count
+       <*> lprefix w16 V.replicateM parseTree -- children
 
-parseWord :: G.Get T.Text
-parseWord = do
-    wordLength <- G.getWord8
-    word <- G.getByteString (fromIntegral wordLength)
-    return $! E.decodeLatin1 word
+parseText :: Int -> G.Get T.Text
+parseText n = (return $!) =<<
+  T.decodeUtf8With T.lenientDecode <$> G.getByteString n
