@@ -78,17 +78,20 @@ reply (I.Brain fTree bTree _ order dict) phrase = do
           _           -> lowered
     return titled
 
+rndIndex :: Int -> State StdGen Int
+rndIndex n = state $ randomR (0, n - 1)
+
 -- | Seed a first word for the reply words
 seed :: Context -> I.Dictionary -> [Int] -> State StdGen Int
 seed ctx _dict []
     | childLength == 0  = return 0
     | otherwise         = do
-        childIndex <- state $ randomR (0, childLength-1)
+        childIndex <- rndIndex childLength
         return $ getSymbol $ V.unsafeIndex children childIndex
     where children      = getChildren $ head ctx
           childLength   = V.length children
 seed _ctx _dict keywords = do
-    ind <- state $ randomR (0, length keywords - 1)
+    ind <- rndIndex (length keywords)
     return $ keywords !! ind
 
 -- | Return a random word from the current context.
@@ -97,8 +100,8 @@ babble :: Context -> I.Dictionary -> Keywords -> Replies -> UsedKey
 babble ctx dict keywords replies used
     | childLength == 0  = return (0, used)
     | otherwise         = do
-        position <- state $ randomR (0, childLength-1)
-        count <- state $ randomR (0, getUsage lastContext)
+        position <- rndIndex childLength
+        count <- rndIndex (1 + getUsage lastContext)
         return $ findWordToUse children dict keywords replies used 0 position count
     where lastContext = lastTree ctx
           children    = getChildren lastContext
@@ -110,17 +113,20 @@ findWordToUse :: V.Vector Tree -> I.Dictionary -> Keywords -> Replies -> UsedKey
               -> Int                    -- ^ Remaining times to search
               -> (Symbol, UsedKey)
 findWordToUse ctx dict keys replies used _symb pos count
-    | symbol `elem` keys && symbol `notElem` replies &&
-        (used || not (I.isAuxWord $ S.index dict symbol)) = (symbol, True)
-    | otherwise =
-        let newCount = count - getCount node
-        in if newCount < 0
-            then (symbol, used)
-            else
-                let position = if pos+1 >= V.length ctx then 0 else pos+1
-                in findWordToUse ctx dict keys replies used symbol position newCount
-    where node   = V.unsafeIndex ctx pos
-          symbol = getSymbol node
+  | symbol `elem` keys &&
+    symbol `notElem` replies &&
+    (used || not (I.isAuxWord $ S.index dict symbol)) =
+      (symbol, True)
+  | newCount < 0 = (symbol, used)
+  | otherwise =
+      findWordToUse ctx dict keys replies used symbol position newCount
+  where
+    node = V.unsafeIndex ctx pos
+    symbol = getSymbol node
+    newCount = count - getCount node
+    position = case pos + 1 of
+      p | p < V.length ctx -> p
+        | otherwise        -> 0
 
 -- | Babble with a given context.
 autoBabble :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey
@@ -134,10 +140,11 @@ processWords :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedK
 processWords _ _ _ _ _ uK 0 = return ([], [], uK)
 processWords _ _ _ _ _ uK 1 = return ([], [], uK)
 processWords ctx dict order keywords replies usedKey symbol = do
-    let word       = S.index dict symbol
-        replyWords = symbol:replies
-        newCtx     = updateContext ctx order symbol
-    (newSymbol, usedKey') <- babble newCtx dict keywords replyWords usedKey
-    (rest, symbols, returnKey) <-
-        processWords newCtx dict order keywords replyWords usedKey' newSymbol
-    return (word:rest, symbol:symbols, returnKey)
+  (newSymbol, usedKey') <- babble newCtx dict keywords replyWords usedKey
+  (rest, symbols, returnKey) <-
+    processWords newCtx dict order keywords replyWords usedKey' newSymbol
+  return (word:rest, symbol:symbols, returnKey)
+  where
+    word = S.index dict symbol
+    replyWords = symbol:replies
+    newCtx = updateContext ctx order symbol

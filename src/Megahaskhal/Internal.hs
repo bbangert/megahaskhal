@@ -27,7 +27,7 @@ data Brain = Brain {
     , getCookie :: Text
     , getOrder :: Int
     , getDictionary :: Dictionary
-} deriving (Show)
+    } deriving (Show)
 
 isAuxWord :: Text -> Bool
 isAuxWord = (`S.member` auxWords)

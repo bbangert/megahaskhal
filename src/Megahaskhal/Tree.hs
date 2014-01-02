@@ -14,10 +14,9 @@ module Megahaskhal.Tree (
     ) where
 
 import Prelude hiding (null)
-import Data.List (foldl', dropWhileEnd)
+import Data.List (foldl')
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as V
-
 
 data Tree = Empty | Tree {
     getSymbol     :: {-# UNPACK #-} !Int
@@ -39,10 +38,11 @@ updateContext :: Context              -- ^ Front portion of context to update
               -> Int                  -- ^ Order
               -> Int                  -- ^ Symbol to locate in the tree
               -> Context              -- ^ The new context
-updateContext ctx order symbol = head ctx : updateContext' (take (order-1) ctx) symbol
+updateContext ctx order symbol =
+  head ctx : updateContext' (take (order-1) ctx) symbol
 
 updateContext' :: Context -> Int -> Context
-updateContext' ctx symbol = foldl' (\a x -> a ++ [findSymbol x symbol]) [] ctx
+updateContext' ctx symbol = map (`findSymbol` symbol) ctx
 
 -- | Create a context suitable for navigating backwards based on the symbols
 -- used in the current reply using a starting tree.
@@ -57,7 +57,7 @@ null _ = False
 
 -- | Return the last non-Empty tree in a Context sequence
 lastTree :: Context -> Tree
-lastTree ctx = last $! dropWhileEnd null ctx
+lastTree = last . filter (not . null)
 
 -- | Given a tree and a symbol to locate, perform a binary search on the
 -- children of the tree to retrieve a match if possible. Returns an Empty
