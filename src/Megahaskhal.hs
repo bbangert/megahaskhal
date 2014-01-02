@@ -8,6 +8,7 @@ module Megahaskhal (
 
 import Control.Monad.State (State, state)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
+import Data.List (foldl')
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
@@ -19,8 +20,10 @@ import Megahaskhal.Serialization (loadBrainFromFilename)
 import Megahaskhal.Tree (
     Context, newContext, updateContext, createBackContext,
     Tree, lastTree,
+    findSymbol,
     getCount, getChildren, getSymbol, getUsage,
     )
+import qualified Megahaskhal.Tree as MT
 import qualified Megahaskhal.Internal as I
 import Megahaskhal.Internal (Brain)
 
@@ -61,8 +64,8 @@ getWords = fixup . T.groupBy sameClass . T.toUpper
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
       -> [Text]                         -- ^ Words to respond to
-      -> State StdGen Text              -- ^ Reply words
-reply (I.Brain fTree bTree _ order dict) phrase = do
+      -> State StdGen (Text, Float)              -- ^ Reply words
+reply brain@(I.Brain fTree bTree _ order dict) phrase = do
     let lookupSymbol = flip S.elemIndexL dict
         kws          = mapMaybe lookupSymbol phrase
         ctx          = newContext fTree order
@@ -71,15 +74,70 @@ reply (I.Brain fTree bTree _ order dict) phrase = do
     let minCtx       = min (length fWords) order
         wordsToUse   = reverse $ take minCtx fSymbols
         backCtx      = createBackContext bTree order wordsToUse
-    (bWords, _bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
+    (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
     let lowered      = T.toLower . T.concat $ reverse bWords ++ fWords
         titled = case T.uncons lowered of
           Just (c, t) -> toUpper c `T.cons` t
           _           -> lowered
-    return titled
+        surprise = evaluateReply brain kws $ reverse bSymbols ++ fSymbols
+    return (titled, surprise)
 
 rndIndex :: Int -> State StdGen Int
 rndIndex n = state $ randomR (0, n - 1)
+
+-- Evaluate the 'surprise' factor of a given choice of reply words
+-- The surprise factor is based entirely around whether the chosen reply
+-- includes words used in the keywords that were supplied.
+-- For every word in the reply, the context is built up and iterated over
+-- regardless of if the word is a keyword. When a keyword is hit, a subloop
+-- runs for that portion over the entire context at that state determining if
+-- any of the tree's contain the symbol and updating the probability, at the
+-- end of which the entropy is updated.
+evaluateReply :: I.Brain -> Keywords -> Replies -> Float
+evaluateReply _ [] _ = 0
+evaluateReply (I.Brain fTree bTree _ order _) keys repl
+  | num' < 8  = entropy'
+  | num' < 16 = entropy' / sqrt (num'-1)
+  | otherwise = entropy' / sqrt (num'-1) / num'
+  where
+    symbolEval = evalulateSymbols order keys
+    -- evaluate the words going forward
+    frontContext = newContext fTree order
+    (num, entropy, _) = foldl' symbolEval (0, 0, frontContext) repl
+    -- evaluate the words going backwards
+    backContext = newContext bTree order
+    (num', entropy', _) = foldl' symbolEval (num, entropy, backContext) (reverse repl)
+
+
+-- entropy and num accumulator that retains updated context as each tree
+-- in the context is stepped through
+evalulateSymbols :: Order -> Keywords
+                 -> (Float, Float, Context)         -- ^ Accumulator
+                 -> Int                             -- ^ Current symbol
+                 -> (Float, Float, Context)         -- ^ Accumulated value
+evalulateSymbols order keys (accNum, accEntropy, ctx) symbol
+  | symbol `elem` keys =
+    let (count, prob) = foldl' contextEval (0, 0) ctx
+        newEntropy            =
+          if count > 0 then accEntropy - log (prob/count) else accEntropy
+    in (accNum+1, newEntropy, newctx)
+  | otherwise          = (accNum, accEntropy, newctx)
+  where
+    -- we always update the context with the symbol on each step, even
+    -- if the symbol here isn't a keyword
+    newctx = updateContext ctx order symbol
+    -- our context evaluator for this symbol
+    contextEval = evaluateContext symbol
+
+-- context accumulator that returns the count and probability
+evaluateContext :: Symbol -> (Float, Float) -> Tree -> (Float,Float)
+evaluateContext _ acc tree
+  | MT.null tree = acc
+evaluateContext symbol (count, prob) tree =
+    let nodeCount = fromIntegral $ getCount node
+        nodeUsage = fromIntegral $ getUsage tree
+    in (count+1, prob + (nodeCount/nodeUsage))
+  where node = findSymbol tree symbol
 
 -- | Seed a first word for the reply words
 seed :: Context -> I.Dictionary -> [Int] -> State StdGen Int

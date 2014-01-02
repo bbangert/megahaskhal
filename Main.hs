@@ -4,7 +4,6 @@ module Main where
 import Data.List (foldl')
 import Control.Applicative ((<$>))
 import Control.Monad.State (runState)
-import Data.Text (pack)
 import System.Environment (getArgs)
 import System.Random (getStdGen, StdGen, mkStdGen)
 import System.Exit (exitFailure)
@@ -48,6 +47,7 @@ runHal :: Brain -> StdGen -> IO ()
 runHal brain gen = do
   T.putStrLn "Enter text: "
   phrase <- getWords <$> T.getLine
-  let (output, newGen) = runState (reply brain phrase) gen
+  let ((output, surprise), newGen) = runState (reply brain phrase) gen
   T.putStrLn output
+  print surprise
   runHal brain newGen

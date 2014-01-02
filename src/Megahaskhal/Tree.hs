@@ -78,4 +78,4 @@ binsearch xs value low high
    | pivot < value  = binsearch xs value (mid+1) high
    | otherwise        = Just mid
    where mid = low + ((high - low) `div` 2)
-         pivot = getSymbol $! xs ! mid
+         pivot = getSymbol $ xs ! mid
