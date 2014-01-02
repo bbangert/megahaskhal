@@ -10,6 +10,8 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Lazy.Char8 as LC
 import qualified Data.Binary.Get as G
 import qualified Data.Sequence as S
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import qualified Data.Vector as V
 
 import Megahaskhal.Internal (Brain (Brain), Dictionary)
@@ -46,8 +48,8 @@ parseTree = do
     children <- V.replicateM (fromIntegral branch) parseTree
     return $! Tree (fromIntegral symbol :: Int) (fromIntegral usage :: Int) (fromIntegral count :: Int) children
 
-parseWord :: G.Get String
+parseWord :: G.Get T.Text
 parseWord = do
     wordLength <- G.getWord8
-    rawWord <- replicateM (fromIntegral wordLength) G.getWord8
-    return $ decode rawWord
+    word <- G.getByteString (fromIntegral wordLength)
+    return $! E.decodeLatin1 word

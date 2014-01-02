@@ -5,15 +5,16 @@ import Data.Sequence (Seq)
 import System.Random (StdGen)
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
+import qualified Data.Text as T
 import Megahaskhal.Tree (Tree)
 
-type Dictionary = Seq String
+type Dictionary = Seq T.Text
 
 rawAuxWords = [
     "DISLIKE", "HE", "HER", "HERS", "HIM", "HIS", "I", "I'D", "I'LL", "I'M",
     "I'VE", "LIKE", "ME", "MY", "MYSELF", "ONE", "SHE", "THREE", "TWO", "YOU",
     "YOU'D", "YOU'LL", "YOU'RE", "YOU'VE", "YOUR", "YOURSELF"]
-auxWords = M.fromList $ zip rawAuxWords $ repeat True
+auxWords = M.fromList $ zip (map T.pack rawAuxWords) $ repeat True
 
 data Brain = Brain {
     getForward :: Tree
@@ -23,7 +24,7 @@ data Brain = Brain {
     , getDictionary :: Dictionary
 } deriving (Show)
 
-isAuxWord :: String -> Bool
+isAuxWord :: T.Text -> Bool
 isAuxWord = flip M.member auxWords
 
 newBrainOrder :: Brain -> Int -> Brain

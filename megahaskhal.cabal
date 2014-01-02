@@ -26,6 +26,8 @@ executable megahaskhal
         mtl >= 2.1.2,
         vector <= 0.10.0.1,
         utf8-string >= 0.3,
+        text >= 0.11,
+        attoparsec >= 0.10.4,
         megahaskhal >= 0.1.0.0
     ghc-options: -O2
 
@@ -48,7 +50,9 @@ Library
     random >= 1.0.1.1,
     mtl >= 2.1.2,
     vector <= 0.10.0.1,
-    utf8-string >= 0.3
+    utf8-string >= 0.3,
+    text >= 0.11,
+    attoparsec >= 0.10.4
 
   Hs-source-dirs:
     src

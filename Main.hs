@@ -25,5 +25,5 @@ runHal filename = do
             input <- getLine
             let phrase = getWords input
                 (output, newGen) = runState (reply brain phrase) ranGen
-            putStrLn output
+            print output
             setStdGen newGen

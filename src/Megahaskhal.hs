@@ -12,6 +12,9 @@ import Data.Maybe (mapMaybe)
 import System.Random (getStdRandom, randomR, StdGen, RandomGen, Random)
 import qualified Data.Map.Strict as M
 import qualified Data.Sequence as S
+import qualified Data.Text as T
+import qualified Data.Attoparsec.Text as A
+import qualified Data.Attoparsec.Combinator as C
 import qualified Data.Vector as V
 
 import Megahaskhal.Serialization (loadBrainFromFilename)
@@ -30,52 +33,32 @@ type UsedKey = Bool
 type Symbol = Int
 type Order = Int
 
--- | Split a string of words into a proper word-set for the reply
-getWords :: String -> [String]
+parsePhrase :: A.Parser [T.Text]
+parsePhrase = C.manyTill (C.choice [apostWord, word, number, other]) A.endOfInput
+    where
+        word = A.takeWhile1 isAlpha
+        apostWord = do
+            f <- word
+            a <- A.string $ T.pack "\'"
+            e <- word
+            return $ T.concat [f, a, e]
+        number = A.takeWhile1 isDigit
+        other = A.takeWhile1 (not . isAlphaNum)
+
+getWords :: String -> [T.Text]
 getWords "" = []
 getWords s
-    | isAlphaNum $ head lastWord       = phrase ++ ["."]
-    | last lastWord `notElem` "!.?"  = init phrase ++ ["."]
-    | otherwise                         = phrase
-    where phrase = Prelude.map V.toList . _getWords 0 $ V.fromList $ Prelude.map toUpper s
+    | isAlphaNum $ T.head lastWord    = phrase ++ period
+    | T.last lastWord `notElem` "!.?" = init phrase ++ period
+    | otherwise                       = phrase
+    where (Right phrase) = A.parseOnly parsePhrase $ T.toUpper $ T.pack s
           lastWord = last phrase
-
-_getWords :: Int -> V.Vector Char -> [V.Vector Char]
-_getWords offset phrase
-    | isBoundary = let (word, newPhrase) = V.splitAt offset phrase
-        in if V.length newPhrase == 0 then [word] else word:_getWords 0 newPhrase
-    | otherwise = _getWords (offset+1) phrase
-    where isBoundary = boundary offset phrase
-
-boundary :: Int -> V.Vector Char -> Bool
-boundary 0 _                                    = False
-boundary position string
-    | position == stLen                         = True
-    where stLen = V.length string
-boundary position string
-    | and [string V.! position == '\'',
-           isAlpha $ string V.! (position-1),
-           position+1 < V.length string,
-           isAlpha $ string V.! (position+1)]   = False
-boundary position string
-    | and [position > 1, curIsAlpha,
-           priorChar == '\'',
-           isAlpha $ string V.! (position-2)]   = False
-    | curIsAlpha && not priorAlpha              = True
-    | not curIsAlpha && priorAlpha              = True
-    where curIsAlpha = isAlpha $ string V.! position
-          priorChar = string V.! (position-1)
-          priorAlpha = isAlpha priorChar
-boundary position string
-    | curIsDigit /= priorIsDigit                = True
-    | otherwise                                 = False
-    where curIsDigit = isDigit $ string V.! position
-          priorIsDigit = isDigit $ string V.! (position-1)
+          period = [T.pack "."]
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
-      -> [String]                         -- ^ Words to respond to
-      -> State StdGen String            -- ^ Reply words
+      -> [T.Text]                         -- ^ Words to respond to
+      -> State StdGen T.Text              -- ^ Reply words
 reply (I.Brain fTree bTree _ order dict) phrase = do
     let lookupSymbol = flip S.elemIndexL dict
         kws          = mapMaybe lookupSymbol phrase
@@ -86,8 +69,8 @@ reply (I.Brain fTree bTree _ order dict) phrase = do
         wordsToUse   = reverse $ Prelude.take minCtx fSymbols
         backCtx      = createBackContext bTree order wordsToUse
     (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
-    let lowered      = Prelude.map toLower $ foldl1' (++) $ reverse bWords ++ fWords
-        titled       = toTitle (head lowered) : tail lowered
+    let lowered      =  T.toLower $ T.concat $ reverse bWords ++ fWords
+        titled       = T.cons (toTitle $ T.head lowered) (T.tail lowered)
     return titled
 
 -- | Seed a first word for the reply words
@@ -136,13 +119,13 @@ findWordToUse ctx dict keys replies used symb pos count
 
 -- | Babble with a given context.
 autoBabble :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey
-           -> State StdGen ([String], [Int], UsedKey)
+           -> State StdGen ([T.Text], [Int], UsedKey)
 autoBabble ctx dict order keywords replies usedKey = do
     (symbol, usedKey') <- babble ctx dict keywords replies usedKey
     processWords ctx dict order keywords replies usedKey' symbol
 
 processWords :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey -> Symbol
-             -> State StdGen ([String], [Int], UsedKey)
+             -> State StdGen ([T.Text], [Int], UsedKey)
 processWords _ _ _ _ _ uK 0 = return ([], [], uK)
 processWords _ _ _ _ _ uK 1 = return ([], [], uK)
 processWords ctx dict order keywords replies usedKey symbol = do
