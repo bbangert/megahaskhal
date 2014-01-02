@@ -47,7 +47,7 @@ updateContext' ctx symbol = map (`findSymbol` symbol) ctx
 -- | Create a context suitable for navigating backwards based on the symbols
 -- used in the current reply using a starting tree.
 createBackContext :: Tree -> Int -> [Int] -> Context
-createBackContext t order = foldl' (\_ s -> updateContext ctx order s) []
+createBackContext t order = foldl' (\ctx' s -> updateContext ctx' order s) ctx
     where ctx = newContext t order
 
 -- | Indicate if a given tree is empty or not
