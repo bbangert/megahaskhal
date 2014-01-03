@@ -110,10 +110,10 @@ isBanAuxword w = isBanWord w || isAuxWord w
 makeKeywords :: [Text] -> [Text]
 makeKeywords lst = removeDuplicates $ firstBatch ++ secondBatch
   where
-    undesiredWords = Prelude.filter (not . undesiredWord) lst
-    swapped = Prelude.map swapIfPossible undesiredWords
-    firstBatch = Prelude.filter (not .isBanAuxword) swapped
-    secondBatch = Prelude.filter isAuxWord swapped
+    undesiredWords = filter (not . undesiredWord) lst
+    swapped = map swapIfPossible undesiredWords
+    firstBatch = filter (not . isBanAuxword) swapped
+    secondBatch = filter isAuxWord swapped
 
 newBrainOrder :: Brain -> Int -> Brain
 newBrainOrder ob ord = ob { getOrder = ord }
