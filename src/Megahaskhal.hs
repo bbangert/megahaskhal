@@ -10,7 +10,8 @@ module Megahaskhal (
 import Control.Monad (replicateM)
 import Control.Monad.State (State, state)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
-import Data.List (foldl')
+import Data.List (foldl', maximumBy)
+import Data.Ord (comparing)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
@@ -68,21 +69,19 @@ getWords = I.makeKeywords . fixup . T.groupBy sameClass . T.toUpper
 craftReply :: I.Brain -> [Text] -> State StdGen (Text, Float)
 craftReply brain phrase = do
   results <- replicateM 200 (reply brain phrase)
-  return $!
-         foldl' (\acc@(_, n) cur@(_, m) -> if n > m then acc else cur) ("", 0) results
+  return $! maximumBy (comparing snd) results
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
       -> [Text]                         -- ^ Words to respond to
-      -> State StdGen (Text, Float)              -- ^ Reply words
+      -> State StdGen (Text, Float)     -- ^ Reply words
 reply brain@(I.Brain fTree bTree _ order dict) phrase = do
     let lookupSymbol = flip S.elemIndexL dict
         kws          = mapMaybe lookupSymbol phrase
         ctx          = newContext fTree order
     symbol <- seed ctx dict kws
     (fWords, fSymbols, usedKey) <- processWords ctx dict order kws [] False symbol
-    let minCtx       = min (length fWords) order
-        wordsToUse   = reverse $ take minCtx fSymbols
+    let wordsToUse   = reverse $ take order fSymbols
         backCtx      = createBackContext bTree order wordsToUse
     (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
     let lowered      = T.toLower . T.concat $ reverse bWords ++ fWords
