@@ -2,10 +2,12 @@
 module Megahaskhal (
     loadBrainFromFilename,
     reply,
+    craftReply,
     getWords,
     Brain
     ) where
 
+import Control.Monad (replicateM)
 import Control.Monad.State (State, state)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
 import Data.List (foldl')
@@ -42,7 +44,7 @@ type Order = Int
 -- If the last word is alphanumeric then add a last word of ".", otherwise
 -- replace the last word with "." unless it already ends with one of "!.?".
 getWords :: Text -> [Text]
-getWords = fixup . T.groupBy sameClass . T.toUpper
+getWords = I.makeKeywords . fixup . T.groupBy sameClass . T.toUpper
   where
     firstAlpha = isAlpha . T.head
     -- find boundaries
@@ -60,6 +62,14 @@ getWords = fixup . T.groupBy sameClass . T.toUpper
     fixup (a:rest) = a : fixup rest
     -- handle empty input
     fixup [] = []
+
+-- | Craft a reply for a given sample period and return the one with the most
+-- surprise
+craftReply :: I.Brain -> [Text] -> State StdGen (Text, Float)
+craftReply brain phrase = do
+  results <- replicateM 200 (reply brain phrase)
+  return $!
+         foldl' (\acc@(_, n) cur@(_, m) -> if n > m then acc else cur) ("", 0) results
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
