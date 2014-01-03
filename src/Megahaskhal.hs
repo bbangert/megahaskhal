@@ -13,11 +13,10 @@ import Control.Monad (replicateM)
 import Control.Monad.State (State, state)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
 import Data.List (foldl', maximumBy)
-import Data.Ord (comparing)
 import Data.Maybe (mapMaybe)
+import Data.Ord (comparing)
 import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
-import Control.Applicative ((<$>))
 import qualified Data.Sequence as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
