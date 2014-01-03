@@ -11,7 +11,6 @@ module Megahaskhal.Internal
 import Data.Char (isAlphaNum)
 import Data.Sequence (Seq)
 import Data.Text (Text)
-import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Map.Strict as M
@@ -87,15 +86,16 @@ isAuxWord = (`S.member` auxWords)
 isBanWord :: Text -> Bool
 isBanWord = (`S.member` banWords)
 
-removeDuplicates :: Eq a => [a] -> [a]
-removeDuplicates = rdHelper []
-    where rdHelper seen [] = seen
-          rdHelper seen (x:xs)
-              | x `elem` seen = rdHelper seen xs
-              | otherwise = rdHelper (seen ++ [x]) xs
+removeDuplicates :: Ord a => [a] -> [a]
+removeDuplicates = go S.empty
+    where
+      go _ [] = []
+      go s (x:xs)
+        | S.member x s = go s xs
+        | otherwise    = x : go (S.insert x s) xs
 
 swapIfPossible :: Text -> Text
-swapIfPossible w = fromMaybe w $ M.lookup w swapWords
+swapIfPossible w = M.findWithDefault w w swapWords
 
 -- Indicates a word that is an error or doesn't begin with alphanumeric
 undesiredWord :: Text -> Bool
@@ -110,8 +110,8 @@ isBanAuxword w = isBanWord w || isAuxWord w
 makeKeywords :: [Text] -> [Text]
 makeKeywords lst = removeDuplicates $ firstBatch ++ secondBatch
   where
-    undesiredWords = filter (not . undesiredWord) lst
-    swapped = map swapIfPossible undesiredWords
+    desiredWords = filter (not . undesiredWord) lst
+    swapped = map swapIfPossible desiredWords
     firstBatch = filter (not . isBanAuxword) swapped
     secondBatch = filter isAuxWord swapped
 
