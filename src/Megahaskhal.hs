@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, BangPatterns #-}
 module Megahaskhal (
     loadBrainFromFilename,
     reply,
@@ -17,6 +17,7 @@ import Data.Ord (comparing)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
+import Control.Applicative ((<$>))
 import qualified Data.Sequence as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -38,6 +39,10 @@ type Replies = [Int]
 type UsedKey = Bool
 type Symbol = Int
 type Order = Int
+
+data EContext = EContext { eNum     :: {-# UNPACK #-} !Float
+                         , eEntropy :: {-# UNPACK #-} !Float
+                         , eContext :: !Context }
 
 -- Rules for tokenization:
 -- Four character classes: alpha, digit, apostrophe, and other
@@ -123,56 +128,55 @@ rndIndex n = state $ randomR (0, n - 1)
 evaluateReply :: I.Brain -> Keywords -> Replies -> Float
 evaluateReply _ [] _ = 0
 evaluateReply (I.Brain fTree bTree _ order _) keys repl
-  | num' < 8  = entropy'
-  | num' < 16 = entropy' / sqrt (num'-1)
-  | otherwise = entropy' / sqrt (num'-1) / num'
+  | num < 8   = entropy
+  | num < 16  = entropy / sqrt (num-1)
+  | otherwise = entropy / sqrt (num-1) / num
   where
-    symbolEval = evalulateSymbols order keys
+    eval = foldl' (evalulateSymbols order keys)
     -- evaluate the words going forward
-    frontContext = newContext fTree order
-    (num, entropy, _) = foldl' symbolEval (0, 0, frontContext) repl
+    fctx = eval (EContext 0 0 (newContext fTree order)) repl
     -- evaluate the words going backwards
-    backContext = newContext bTree order
-    (num', entropy', _) = foldl' symbolEval (num, entropy, backContext) (reverse repl)
+    bctx = eval (fctx { eContext = newContext bTree order }) (reverse repl)
+    num = eNum bctx
+    entropy = eEntropy bctx
 
 
 -- entropy and num accumulator that retains updated context as each tree
 -- in the context is stepped through
-evalulateSymbols :: Order -> Keywords
-                 -> (Float, Float, Context)         -- ^ Accumulator
-                 -> Int                             -- ^ Current symbol
-                 -> (Float, Float, Context)         -- ^ Accumulated value
-evalulateSymbols order keys (accNum, accEntropy, ctx) symbol
-  | symbol `elem` keys =
-    let (count, prob) = foldl' contextEval (0, 0) ctx
-        newEntropy            =
-          if count > 0 then accEntropy - log (prob/count) else accEntropy
-    in (accNum+1, newEntropy, newctx)
-  | otherwise          = (accNum, accEntropy, newctx)
+evalulateSymbols :: Order
+                 -> Keywords
+                 -> EContext -- ^ Accumulator
+                 -> Int      -- ^ Current symbol
+                 -> EContext -- ^ Accumulated value
+evalulateSymbols order keys acc@(EContext accNum accEntropy ctx) symbol
+  | symbol `elem` keys = EContext (accNum + 1) newEntropy newctx
+  | otherwise          = acc { eContext = newctx }
   where
     -- we always update the context with the symbol on each step, even
     -- if the symbol here isn't a keyword
     newctx = updateContext ctx order symbol
     -- our context evaluator for this symbol
-    contextEval = evaluateContext symbol
+    (count, prob) = foldl' (evaluateContext symbol) (0, 0) ctx
+    newEntropy | count > 0 = accEntropy - log (prob/count)
+               | otherwise = accEntropy
 
 -- context accumulator that returns the count and probability
 evaluateContext :: Symbol -> (Float, Float) -> Tree -> (Float,Float)
 evaluateContext _ acc tree
   | MT.null tree = acc
-evaluateContext symbol (count, prob) tree =
-    let nodeCount = fromIntegral $ getCount node
-        nodeUsage = fromIntegral $ getUsage tree
-    in (count+1, prob + (nodeCount/nodeUsage))
-  where node = findSymbol tree symbol
+evaluateContext symbol (!count, !prob) tree =
+  (count + 1, prob + (nodeCount / nodeUsage))
+  where
+    node = findSymbol tree symbol
+    nodeCount = fromIntegral $ getCount node
+    nodeUsage = fromIntegral $ getUsage tree
 
 -- | Seed a first word for the reply words
 seed :: Context -> I.Dictionary -> [Int] -> State StdGen Int
 seed ctx _dict []
     | childLength == 0  = return 0
-    | otherwise         = do
-        childIndex <- rndIndex childLength
-        return $ getSymbol $ V.unsafeIndex children childIndex
+    | otherwise         =
+      getSymbol . V.unsafeIndex children <$> rndIndex childLength
     where children      = getChildren $ head ctx
           childLength   = V.length children
 seed _ctx _dict keywords = do
@@ -222,8 +226,8 @@ autoBabble ctx dict order keywords replies usedKey = do
 
 processWords :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey -> Symbol
              -> State StdGen ([Text], [Int], UsedKey)
-processWords _ _ _ _ _ uK 0 = return ([], [], uK)
-processWords _ _ _ _ _ uK 1 = return ([], [], uK)
+processWords _ _ _ _ _ usedKey 0 = return ([], [], usedKey)
+processWords _ _ _ _ _ usedKey 1 = return ([], [], usedKey)
 processWords ctx dict order keywords replies usedKey symbol = do
   (newSymbol, usedKey') <- babble newCtx dict keywords replyWords usedKey
   (rest, symbols, returnKey) <-
