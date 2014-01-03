@@ -4,9 +4,11 @@ module Megahaskhal (
     reply,
     craftReply,
     getWords,
+    customCraft,
     Brain
     ) where
 
+import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
 import Control.Monad.State (State, state)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
@@ -70,6 +72,22 @@ craftReply :: I.Brain -> [Text] -> State StdGen (Text, Float)
 craftReply brain phrase = do
   results <- replicateM 200 (reply brain phrase)
   return $! maximumBy (comparing snd) results
+
+-- | Craft a custom reply that meets these requirements
+customCraft :: (Int, Int, Int, Float)
+            -> Brain -> [Text]
+            -> State StdGen (Text, Float)
+customCraft (minLength, maxLength, finds, score) brain phrase =
+  (!!) <$> go finds <*> rndIndex finds
+  where
+    go :: Int -> State StdGen [(Text, Float)]
+    go 0          = return []
+    go remaining = do
+      (rep, sc) <- reply brain phrase
+      let repLen = T.length rep
+      if minLength <= repLen && repLen <= maxLength && sc > score
+        then ((rep, sc):) <$> go (remaining-1)
+        else go remaining
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
