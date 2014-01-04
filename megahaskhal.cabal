@@ -41,6 +41,7 @@ Library
     Megahaskhal.Internal
     Megahaskhal.Serialization
     Megahaskhal.Tree
+    Megahaskhal.Dictionary
 
   -- other-modules:
   -- other-extensions:

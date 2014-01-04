@@ -17,7 +17,6 @@ import Data.Maybe (mapMaybe)
 import Data.Ord (comparing)
 import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
-import qualified Data.Sequence as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
@@ -30,6 +29,7 @@ import Megahaskhal.Tree (
     )
 import qualified Megahaskhal.Tree as MT
 import qualified Megahaskhal.Internal as I
+import Megahaskhal.Dictionary (Dictionary, findWord, lookupIndex)
 import Megahaskhal.Internal (Brain)
 
 -- | Aliases for easy reading
@@ -98,7 +98,7 @@ reply :: I.Brain                        -- ^ A brain to start with
       -> [Text]                         -- ^ Words to respond to
       -> State StdGen (Text, Float)     -- ^ Reply words
 reply brain@(I.Brain fTree bTree _ order dict) phrase = do
-    let lookupSymbol = flip S.elemIndexL dict
+    let lookupSymbol = flip lookupIndex dict
         kws          = mapMaybe lookupSymbol phrase
         ctx          = newContext fTree order
     symbol <- seed ctx dict kws
@@ -171,7 +171,7 @@ evaluateContext symbol (!count, !prob) tree =
     nodeUsage = fromIntegral $ getUsage tree
 
 -- | Seed a first word for the reply words
-seed :: Context -> I.Dictionary -> [Int] -> State StdGen Int
+seed :: Context -> Dictionary -> [Int] -> State StdGen Int
 seed ctx _dict []
     | childLength == 0  = return 0
     | otherwise         =
@@ -183,7 +183,7 @@ seed _ctx _dict keywords = do
     return $ keywords !! ind
 
 -- | Return a random word from the current context.
-babble :: Context -> I.Dictionary -> Keywords -> Replies -> UsedKey
+babble :: Context -> Dictionary -> Keywords -> Replies -> UsedKey
        -> State StdGen (Symbol, UsedKey)
 babble ctx dict keywords replies used
     | childLength == 0  = return (0, used)
@@ -196,14 +196,14 @@ babble ctx dict keywords replies used
           childLength = V.length children
 
 -- | Find a word to use out of the vector of trees.
-findWordToUse :: V.Vector Tree -> I.Dictionary -> Keywords -> Replies -> UsedKey -> Symbol
+findWordToUse :: V.Vector Tree -> Dictionary -> Keywords -> Replies -> UsedKey -> Symbol
               -> Int                    -- ^ Current position
               -> Int                    -- ^ Remaining times to search
               -> (Symbol, UsedKey)
 findWordToUse ctx dict keys replies used _symb pos count
   | symbol `elem` keys &&
     symbol `notElem` replies &&
-    (used || not (I.isAuxWord $ S.index dict symbol)) =
+    (used || not (I.isAuxWord $ findWord dict symbol)) =
       (symbol, True)
   | newCount < 0 = (symbol, used)
   | otherwise =
@@ -217,13 +217,13 @@ findWordToUse ctx dict keys replies used _symb pos count
         | otherwise        -> 0
 
 -- | Babble with a given context.
-autoBabble :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey
+autoBabble :: Context -> Dictionary -> Order -> Keywords -> Replies -> UsedKey
            -> State StdGen ([Text], [Int], UsedKey)
 autoBabble ctx dict order keywords replies usedKey = do
     (symbol, usedKey') <- babble ctx dict keywords replies usedKey
     processWords ctx dict order keywords replies usedKey' symbol
 
-processWords :: Context -> I.Dictionary -> Order -> Keywords -> Replies -> UsedKey -> Symbol
+processWords :: Context -> Dictionary -> Order -> Keywords -> Replies -> UsedKey -> Symbol
              -> State StdGen ([Text], [Int], UsedKey)
 processWords _ _ _ _ _ usedKey 0 = return ([], [], usedKey)
 processWords _ _ _ _ _ usedKey 1 = return ([], [], usedKey)
@@ -233,6 +233,6 @@ processWords ctx dict order keywords replies usedKey symbol = do
     processWords newCtx dict order keywords replyWords usedKey' newSymbol
   return (word:rest, symbol:symbols, returnKey)
   where
-    word = S.index dict symbol
+    word = findWord dict symbol
     replyWords = symbol:replies
     newCtx = updateContext ctx order symbol

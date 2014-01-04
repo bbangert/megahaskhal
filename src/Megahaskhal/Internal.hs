@@ -5,18 +5,15 @@ module Megahaskhal.Internal
        , makeKeywords
        , newBrainOrder
        , Brain(..)
-       , Dictionary
        ) where
 
 import Data.Char (isAlphaNum)
-import Data.Sequence (Seq)
 import Data.Text (Text)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Map.Strict as M
 import Megahaskhal.Tree (Tree)
-
-type Dictionary = Seq Text
+import Megahaskhal.Dictionary (Dictionary)
 
 auxWords :: S.Set Text
 auxWords =

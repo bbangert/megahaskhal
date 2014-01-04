@@ -9,12 +9,12 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Encoding.Error as T
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Binary.Get as G
-import qualified Data.Sequence as S
 import qualified Data.Vector as V
 import Control.Applicative ((<$>), (<*>))
 
-import Megahaskhal.Internal (Brain (Brain), Dictionary)
+import Megahaskhal.Internal (Brain (Brain))
 import Megahaskhal.Tree (Tree, mkTree, getChildren)
+import qualified Megahaskhal.Dictionary as D
 
 w8, w16, w32 :: G.Get Int
 w8 = fromIntegral <$> G.getWord8
@@ -31,19 +31,19 @@ loadBrainFromFilename fileName = withFile fileName ReadMode parseFile
     parseFile handle =
       mkBrain =<< G.runGet parseModel <$> BL.hGetContents handle
     mkBrain (cookie, order, forward, backward, dictWords) = do
-      print (cookie, order, leftCount, rightCount, S.length dictWords)
+      print (cookie, order, leftCount, rightCount, D.length dictWords)
       return . Just $ Brain forward backward cookie order dictWords
       where
         leftCount = V.length $ getChildren forward
         rightCount = V.length $ getChildren backward
 
-parseModel :: G.Get (T.Text, Int, Tree, Tree, Dictionary)
+parseModel :: G.Get (T.Text, Int, Tree, Tree, D.Dictionary)
 parseModel =
   (,,,,) <$> parseText 9 -- cookie
          <*> w8          -- order
          <*> parseTree   -- leftTree
          <*> parseTree   -- rightTree
-         <*> lprefix w32 S.replicateM (w8 >>= parseText) -- dictWords
+         <*> lprefix w32 D.replicateM (w8 >>= parseText) -- dictWords
 
 parseTree :: G.Get Tree
 parseTree = (return $!) =<<
