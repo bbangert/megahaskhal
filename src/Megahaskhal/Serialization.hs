@@ -14,7 +14,7 @@ import qualified Data.Vector as V
 import Control.Applicative ((<$>), (<*>))
 
 import Megahaskhal.Internal (Brain (Brain), Dictionary)
-import Megahaskhal.Tree (Tree (Tree), getChildren)
+import Megahaskhal.Tree (Tree, mkTree, getChildren)
 
 w8, w16, w32 :: G.Get Int
 w8 = fromIntegral <$> G.getWord8
@@ -22,7 +22,7 @@ w16 = fromIntegral <$> G.getWord16le
 w32 = fromIntegral <$> G.getWord32le
 
 lprefix :: Monad m => m Int -> (Int -> m a -> m b) -> m a -> m b
-lprefix len rep action = flip rep action =<< len
+lprefix len rep action = len >>= flip rep action . fromIntegral
 
 loadBrainFromFilename :: String -> IO (Maybe Brain)
 loadBrainFromFilename "" = return Nothing
@@ -47,11 +47,11 @@ parseModel =
 
 parseTree :: G.Get Tree
 parseTree = (return $!) =<<
-  Tree <$> w16 -- symbol
-       <*> w32 -- usage
-       <*> w16 -- count
-       <*> lprefix w16 V.replicateM parseTree -- children
+  mkTree <$> G.getWord16le -- symbol
+         <*> G.getWord32le -- usage
+         <*> G.getWord16le -- count
+         <*> lprefix w16 V.replicateM parseTree -- children
 
 parseText :: Int -> G.Get T.Text
 parseText n = (return $!) =<<
-  T.decodeUtf8With T.lenientDecode <$> G.getByteString n
+  T.decodeUtf8With T.lenientDecode <$> G.getByteString (fromIntegral n)

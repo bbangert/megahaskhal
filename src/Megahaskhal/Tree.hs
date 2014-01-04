@@ -1,6 +1,7 @@
 module Megahaskhal.Tree (
     Context,
-    Tree (Tree),
+    Tree,
+    mkTree,
     getSymbol,
     getUsage,
     getCount,
@@ -17,15 +18,27 @@ import Prelude hiding (null)
 import Data.List (foldl')
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as V
+import Data.Word (Word32, Word16)
 
-data Tree = Empty | Tree {
-    getSymbol     :: {-# UNPACK #-} !Int
-    , getUsage    :: {-# UNPACK #-} !Int
-    , getCount    :: {-# UNPACK #-} !Int
-    , getChildren :: {-# UNPACK #-} !(Vector Tree)
-    } deriving (Eq, Show)
+data Tree = Empty
+          | Tree { treeSymbol   :: {-# UNPACK #-} !Word16
+                 , treeUsage    :: {-# UNPACK #-} !Word32
+                 , treeCount    :: {-# UNPACK #-} !Word16
+                 , treeChildren :: {-# UNPACK #-} !(Vector Tree)
+                 } deriving (Eq, Show)
 
 type Context = [Tree]
+
+mkTree :: Word16 -> Word32 -> Word16 -> Vector Tree -> Tree
+mkTree = Tree
+
+getSymbol, getUsage, getCount :: Tree -> Int
+getSymbol = fromIntegral . treeSymbol
+getUsage = fromIntegral . treeUsage
+getCount = fromIntegral . treeCount
+
+getChildren :: Tree -> Vector Tree
+getChildren = treeChildren
 
 -- | Create a new context initialized with a tree for the given order
 -- size. Empty tree's will fill in order slots.
@@ -65,11 +78,10 @@ lastTree = last . filter (not . null)
 findSymbol :: Tree -> Int -> Tree
 findSymbol Empty _ = Empty
 findSymbol t symbol =
-    let children = getChildren t
-        node = binsearch children symbol 0 (V.length children - 1)
-    in case node of
-        Nothing -> Empty
-        Just x -> children ! x
+  case binsearch children symbol 0 (V.length children - 1) of
+    Nothing -> Empty
+    Just x -> children ! x
+  where children = treeChildren t
 
 binsearch :: V.Vector Tree -> Int -> Int -> Int -> Maybe Int -- list, value, low, high, return int
 binsearch xs value low high
