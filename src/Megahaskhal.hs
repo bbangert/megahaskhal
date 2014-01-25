@@ -3,8 +3,8 @@ module Megahaskhal (
     loadBrainFromFilename,
     reply,
     craftReply,
-    getWords,
     customCraft,
+    getWords,
     Brain
     ) where
 
@@ -12,15 +12,14 @@ import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
 import Control.Monad.State (State, state, MonadState)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
-import Data.List (foldl', maximumBy)
+import Data.List (foldl')
 import Data.Maybe (mapMaybe)
-import Data.Ord (comparing)
 import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
 import qualified Data.Text as T
 import qualified Data.Vector as V
-import qualified Data.Sequence as S
 
+import Megahaskhal.Replies (ScoredReply (ScoredReply), TopReplies)
 import Megahaskhal.Serialization (loadBrainFromFilename)
 import Megahaskhal.Tree (
     Context, newContext, updateContext, createBackContext,
@@ -28,6 +27,7 @@ import Megahaskhal.Tree (
     findSymbol,
     getCount, getChildren, getSymbol, getUsage,
     )
+import qualified Megahaskhal.Replies as R
 import qualified Megahaskhal.Tree as MT
 import qualified Megahaskhal.Internal as I
 import Megahaskhal.Dictionary (Dictionary, findWord, lookupIndex)
@@ -43,12 +43,6 @@ type Order = Int
 data EContext = EContext { eNum     :: {-# UNPACK #-} !Float
                          , eEntropy :: {-# UNPACK #-} !Float
                          , eContext :: !Context }
-
-type ScoredReply = (Text, Float)
-
-
-data TopReplies = TopReplies { maxCapacity :: Int
-                             , allReplies  :: S.Seq ScoredReply}
 
 -- Rules for tokenization:
 -- Four character classes: alpha, digit, apostrophe, and other
@@ -79,26 +73,25 @@ getWords = I.makeKeywords . fixup . T.groupBy sameClass . T.toUpper
 
 -- | Craft a reply for a given sample period and return the one with the most
 -- surprise
-craftReply :: I.Brain -> [Text] -> State StdGen (Text, Float)
-craftReply brain phrase = do
-  results <- replicateM 200 (reply brain phrase)
-  return $! maximumBy (comparing snd) results
+craftReply :: I.Brain -> [Text] -> State StdGen ScoredReply
+craftReply brain phrase = maximum <$> replicateM 200 (reply brain phrase)
 
 -- | Craft a custom reply that meets these requirements
 customCraft :: (Int, Int, Int, Float)
             -> Brain -> [Text]
-            -> State StdGen (Text, Float)
+            -> State StdGen ScoredReply
 customCraft (minLength, maxLength, finds, score) brain phrase =
-  (!!) <$> go finds <*> rndIndex finds
+  bestReply <$> go finds 500 <*> rndIndex finds
   where
-    go :: Int -> State StdGen [(Text, Float)]
-    go 0          = return []
-    go remaining = do
-      (rep, sc) <- reply brain phrase
-      let repLen = T.length rep
-      if minLength <= repLen && repLen <= maxLength && sc > score
-        then ((rep, sc):) <$> go (remaining-1)
-        else go remaining
+    bestReply :: TopReplies -> Int -> ScoredReply
+    bestReply results index = R.allReplies results !! index
+
+    go :: Int -> Int -> TopReplies -> TopReplies -> State StdGen TopReplies
+    go _ 0 bst al
+        | R.curCapacity bst > 0 = return bst
+        | otherwise = return al
+    go 0 _ bst al
+
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
@@ -118,7 +111,7 @@ reply brain@(I.Brain fTree bTree _ order dict) phrase = do
           Just (c, t) -> toUpper c `T.cons` t
           _           -> lowered
         surprise = evaluateReply brain kws $ reverse bSymbols ++ fSymbols
-    return (titled, surprise)
+    return $ ScoredReply titled surprise
 
 rndIndex :: MonadState StdGen m => Int -> m Int
 rndIndex n = state $ randomR (0, n - 1)

@@ -31,7 +31,8 @@ executable megahaskhal
     mtl >= 2.1.2,
     vector <= 0.10.0.1,
     text >= 0.11,
-    megahaskhal >= 0.1.0.0
+    megahaskhal >= 0.1.0.0,
+    data-ordlist >= 0.2
   ghc-options: -O2 -Wall -threaded -rtsopts
 
 Library
@@ -42,6 +43,7 @@ Library
     Megahaskhal.Serialization
     Megahaskhal.Tree
     Megahaskhal.Dictionary
+    Megahaskhal.Replies
 
   -- other-modules:
   -- other-extensions:
@@ -59,7 +61,8 @@ Library
     random >= 1.0.1.1,
     mtl >= 2.1.2,
     vector <= 0.10.0.1,
-    text >= 0.11
+    text >= 0.11,
+    data-ordlist >= 0.2
 
   Hs-source-dirs:
     src
