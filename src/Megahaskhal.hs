@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, BangPatterns #-}
+{-# LANGUAGE OverloadedStrings, BangPatterns, FlexibleContexts #-}
 module Megahaskhal (
     loadBrainFromFilename,
     reply,
@@ -10,7 +10,7 @@ module Megahaskhal (
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
-import Control.Monad.State (State, state)
+import Control.Monad.State (State, state, MonadState)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
 import Data.List (foldl', maximumBy)
 import Data.Maybe (mapMaybe)
@@ -19,6 +19,7 @@ import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Data.Sequence as S
 
 import Megahaskhal.Serialization (loadBrainFromFilename)
 import Megahaskhal.Tree (
@@ -42,6 +43,12 @@ type Order = Int
 data EContext = EContext { eNum     :: {-# UNPACK #-} !Float
                          , eEntropy :: {-# UNPACK #-} !Float
                          , eContext :: !Context }
+
+type ScoredReply = (Text, Float)
+
+
+data TopReplies = TopReplies { maxCapacity :: Int
+                             , allReplies  :: S.Seq ScoredReply}
 
 -- Rules for tokenization:
 -- Four character classes: alpha, digit, apostrophe, and other
@@ -96,7 +103,7 @@ customCraft (minLength, maxLength, finds, score) brain phrase =
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                        -- ^ A brain to start with
       -> [Text]                         -- ^ Words to respond to
-      -> State StdGen (Text, Float)     -- ^ Reply words
+      -> State StdGen ScoredReply     -- ^ Reply words along with score
 reply brain@(I.Brain fTree bTree _ order dict) phrase = do
     let lookupSymbol = flip lookupIndex dict
         kws          = mapMaybe lookupSymbol phrase
@@ -113,7 +120,7 @@ reply brain@(I.Brain fTree bTree _ order dict) phrase = do
         surprise = evaluateReply brain kws $ reverse bSymbols ++ fSymbols
     return (titled, surprise)
 
-rndIndex :: Int -> State StdGen Int
+rndIndex :: MonadState StdGen m => Int -> m Int
 rndIndex n = state $ randomR (0, n - 1)
 
 -- Evaluate the 'surprise' factor of a given choice of reply words
