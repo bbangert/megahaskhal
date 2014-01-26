@@ -12,7 +12,7 @@ data ScoredReply = ScoredReply { sReply :: Text
                                , sScore :: Float} deriving (Show)
 
 instance Eq ScoredReply where
-    x == y = (sScore x) == (sScore y)
+    x == y = sScore x == sScore y
 
 instance Ord ScoredReply where
     x `compare` y = sScore x `compare` sScore y
@@ -28,7 +28,6 @@ addReply :: ScoredReply -> TopReplies -> TopReplies
 addReply s (TopReplies mC _ []) = TopReplies mC 1 [s]
 addReply s t@(TopReplies mC cC replies)
     | cC < mC          = t { allReplies = O.insertBag s replies, curCapacity = cC + 1 }
-    | s > head replies =
-            let (_:rst) = replies
-            in t { allReplies = O.insertBag s replies }
+    | s > head replies = let (_:rst) = replies
+                         in t { allReplies = O.insertBag s rst }
     | otherwise        = t

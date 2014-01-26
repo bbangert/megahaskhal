@@ -5,10 +5,11 @@ module Megahaskhal (
     craftReply,
     customCraft,
     getWords,
+    capitalizeSentance,
     Brain
     ) where
 
-import Control.Applicative ((<$>), (<*>))
+import Control.Applicative ((<$>))
 import Control.Monad (replicateM)
 import Control.Monad.State (State, state, MonadState)
 import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
@@ -71,31 +72,65 @@ getWords = I.makeKeywords . fixup . T.groupBy sameClass . T.toUpper
     -- handle empty input
     fixup [] = []
 
+capitalizeSentance :: Text -> Text
+capitalizeSentance = T.concat . (fixup True) . T.groupBy sameClass
+  where
+    -- capitalize word
+    capWord w = case T.uncons w of
+      Just (c, t) -> toUpper c `T.cons` t
+      _           -> w
+    -- find boundaries
+    sameClass a b = isAlpha a == isAlpha b && isDigit a == isDigit b
+    -- If true, and this is alpha char, cap it
+    fixup True (a:rest)
+      | isAlpha $ T.head a = capWord a : fixup False rest
+    -- 'i' on its own is always capped
+    fixup _ ("i":rest) = "I" : fixup False rest
+    -- If this word has sentence enders, mark for cap
+    fixup _ (a:rest)
+      | T.last a `elem` "!.?" = a : fixup True rest
+      | T.head a `elem` "!.?" = a : fixup True rest
+    fixup c (a:rest) = a : fixup c rest
+    fixup _ [] = []
+
 -- | Craft a reply for a given sample period and return the one with the most
 -- surprise
 craftReply :: I.Brain -> [Text] -> State StdGen ScoredReply
 craftReply brain phrase = maximum <$> replicateM 200 (reply brain phrase)
 
 -- | Craft a custom reply that meets these requirements
-customCraft :: (Int, Int, Int, Float)
+customCraft :: (Int, Int, Int)
             -> Brain -> [Text]
             -> State StdGen ScoredReply
-customCraft (minLength, maxLength, finds, score) brain phrase =
-  bestReply <$> go finds 500 <*> rndIndex finds
+customCraft (minLength, maxLength, finds) brain phrase = do
+  let bst = R.emptyReplies $ max 25 finds
+      al = R.emptyReplies 25
+  replies <- go finds 500 bst al
+  ind <- rndIndex $ R.curCapacity replies - 1
+  let repl = R.allReplies replies !! ind
+      capped = capitalizeSentance $ R.sReply repl
+  return $ repl { R.sReply = capped }
   where
-    bestReply :: TopReplies -> Int -> ScoredReply
-    bestReply results index = R.allReplies results !! index
-
     go :: Int -> Int -> TopReplies -> TopReplies -> State StdGen TopReplies
+    -- no more iterations, return best matches if avail, otherwise all
     go _ 0 bst al
         | R.curCapacity bst > 0 = return bst
-        | otherwise = return al
-    go 0 _ bst al
-
+        | otherwise             = return al
+    -- found enough best matches
+    go 0 _ bst _ = return bst
+    -- more iterations to do, add this to a best match if it meets the
+    -- criteria, otherwise all responses, and iterate again
+    go found remaining bst al = do
+        rep <- reply brain phrase
+        let repLen = T.length $ R.sReply rep
+            newRem = remaining - 1
+        if repLen >= minLength && repLen < maxLength
+            then go (found-1) newRem (R.addReply rep bst) al
+            else go found newRem bst (R.addReply rep al)
 
 -- | Reply to a phrase with a given brain
-reply :: I.Brain                        -- ^ A brain to start with
-      -> [Text]                         -- ^ Words to respond to
+reply :: I.Brain                      -- ^ A brain to start with
+      -> [Text]                       -- ^ Words to respond to
       -> State StdGen ScoredReply     -- ^ Reply words along with score
 reply brain@(I.Brain fTree bTree _ order dict) phrase = do
     let lookupSymbol = flip lookupIndex dict
@@ -107,11 +142,8 @@ reply brain@(I.Brain fTree bTree _ order dict) phrase = do
         backCtx      = createBackContext bTree order wordsToUse
     (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
     let lowered      = T.toLower . T.concat $ reverse bWords ++ fWords
-        titled = case T.uncons lowered of
-          Just (c, t) -> toUpper c `T.cons` t
-          _           -> lowered
         surprise = evaluateReply brain kws $ reverse bSymbols ++ fSymbols
-    return $ ScoredReply titled surprise
+    return $ ScoredReply lowered surprise
 
 rndIndex :: MonadState StdGen m => Int -> m Int
 rndIndex n = state $ randomR (0, n - 1)

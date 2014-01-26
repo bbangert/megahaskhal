@@ -7,7 +7,7 @@ import Control.Monad.State (runState)
 import System.Environment (getArgs)
 import System.Random (getStdGen, StdGen, mkStdGen)
 import System.Exit (exitFailure)
-import Megahaskhal (Brain, loadBrainFromFilename, craftReply, getWords)
+import Megahaskhal (Brain, loadBrainFromFilename, customCraft, getWords)
 import Megahaskhal.Replies (sReply, sScore)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -48,7 +48,7 @@ runHal :: Brain -> StdGen -> IO ()
 runHal brain gen = do
   T.putStrLn "Enter text: "
   phrase <- getWords <$> T.getLine
-  let (reply, newGen) = runState (craftReply brain phrase) gen
+  let (reply, newGen) = runState (customCraft (250, 12800, 30) brain phrase) gen
   T.putStrLn $ sReply reply
   print $ sScore reply
   runHal brain newGen
