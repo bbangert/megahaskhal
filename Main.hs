@@ -48,7 +48,7 @@ runHal :: Brain -> StdGen -> IO ()
 runHal brain gen = do
   T.putStrLn "Enter text: "
   phrase <- getWords <$> T.getLine
-  let (reply, newGen) = runState (customCraft (250, 12800, 30) brain phrase) gen
+  let (reply, newGen) = runState (customCraft (100, 12800) brain phrase) gen
   T.putStrLn $ sReply reply
   print $ sScore reply
   runHal brain newGen

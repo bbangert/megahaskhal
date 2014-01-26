@@ -79,6 +79,10 @@ capitalizeSentance = T.concat . (fixup True) . T.groupBy sameClass
     capWord w = case T.uncons w of
       Just (c, t) -> toUpper c `T.cons` t
       _           -> w
+    -- detect sentender
+    isEnd w = case T.find (`elem` "!.?") w of
+      Just _  -> True
+      Nothing -> False
     -- find boundaries
     sameClass a b = isAlpha a == isAlpha b && isDigit a == isDigit b
     -- If true, and this is alpha char, cap it
@@ -88,8 +92,7 @@ capitalizeSentance = T.concat . (fixup True) . T.groupBy sameClass
     fixup _ ("i":rest) = "I" : fixup False rest
     -- If this word has sentence enders, mark for cap
     fixup _ (a:rest)
-      | T.last a `elem` "!.?" = a : fixup True rest
-      | T.head a `elem` "!.?" = a : fixup True rest
+      | isEnd a = a : fixup True rest
     fixup c (a:rest) = a : fixup c rest
     fixup _ [] = []
 
@@ -99,34 +102,32 @@ craftReply :: I.Brain -> [Text] -> State StdGen ScoredReply
 craftReply brain phrase = maximum <$> replicateM 200 (reply brain phrase)
 
 -- | Craft a custom reply that meets these requirements
-customCraft :: (Int, Int, Int)
+customCraft :: (Int, Int)
             -> Brain -> [Text]
             -> State StdGen ScoredReply
-customCraft (minLength, maxLength, finds) brain phrase = do
-  let bst = R.emptyReplies $ max 25 finds
-      al = R.emptyReplies 25
-  replies <- go finds 500 bst al
+customCraft (minLength, maxLength) brain phrase = do
+  let bst = R.empty 10
+      al = R.empty 10
+  replies <- go 200 bst al
   ind <- rndIndex $ R.curCapacity replies - 1
   let repl = R.allReplies replies !! ind
       capped = capitalizeSentance $ R.sReply repl
   return $ repl { R.sReply = capped }
   where
-    go :: Int -> Int -> TopReplies -> TopReplies -> State StdGen TopReplies
+    go :: Int -> TopReplies -> TopReplies -> State StdGen TopReplies
     -- no more iterations, return best matches if avail, otherwise all
-    go _ 0 bst al
+    go 0 bst al
         | R.curCapacity bst > 0 = return bst
         | otherwise             = return al
-    -- found enough best matches
-    go 0 _ bst _ = return bst
     -- more iterations to do, add this to a best match if it meets the
     -- criteria, otherwise all responses, and iterate again
-    go found remaining bst al = do
+    go remaining bst al = do
         rep <- reply brain phrase
         let repLen = T.length $ R.sReply rep
             newRem = remaining - 1
         if repLen >= minLength && repLen < maxLength
-            then go (found-1) newRem (R.addReply rep bst) al
-            else go found newRem bst (R.addReply rep al)
+            then go newRem (R.addReply rep bst) al
+            else go newRem bst (R.addReply rep al)
 
 -- | Reply to a phrase with a given brain
 reply :: I.Brain                      -- ^ A brain to start with
