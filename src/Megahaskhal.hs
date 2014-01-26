@@ -106,13 +106,16 @@ customCraft :: (Int, Int)
             -> Brain -> [Text]
             -> State StdGen ScoredReply
 customCraft (minLength, maxLength) brain phrase = do
-  let bst = R.empty 10
-      al = R.empty 10
-  replies <- go 200 bst al
-  ind <- rndIndex $ R.curCapacity replies - 1
-  let repl = R.allReplies replies !! ind
-      capped = capitalizeSentance $ R.sReply repl
-  return $ repl { R.sReply = capped }
+  let bst = R.empty 30
+      al = R.empty 30
+  replies <- go 1500 bst al
+  if R.curCapacity replies < 1
+    then customCraft (minLength, maxLength) brain phrase
+    else do
+      ind <- rndIndex $ R.curCapacity replies - 1
+      let repl = R.allReplies replies !! ind
+          capped = capitalizeSentance $ R.sReply repl
+      return $ repl { R.sReply = capped }
   where
     go :: Int -> TopReplies -> TopReplies -> State StdGen TopReplies
     -- no more iterations, return best matches if avail, otherwise all

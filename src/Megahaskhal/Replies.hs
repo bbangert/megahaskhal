@@ -28,6 +28,7 @@ empty x = TopReplies x 0 []
 addReply :: ScoredReply -> TopReplies -> TopReplies
 addReply s (TopReplies mC _ []) = TopReplies mC 1 [s]
 addReply s t@(TopReplies mC cC replies@(h:rst))
+    | any (\x -> sReply s == sReply x) replies = t
     | cC < mC   = TopReplies mC (cC+1) $ O.insertBag s replies
     | s > h     = t { allReplies = O.insertBag s rst }
     | otherwise = t
