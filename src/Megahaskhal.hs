@@ -5,15 +5,15 @@ module Megahaskhal (
     craftReply,
     customCraft,
     getWords,
-    capitalizeSentance,
+    capitalizeSentence,
     Brain
     ) where
 
 import Control.Applicative ((<$>))
 import Control.Monad (replicateM)
 import Control.Monad.State (State, state, MonadState)
-import Data.Char (toUpper, isAlpha, isAlphaNum, isDigit)
-import Data.List (foldl')
+import Data.Char (isAlpha, isAlphaNum, isDigit)
+import Data.List (foldl', mapAccumL)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import System.Random (randomR, StdGen, Random)
@@ -72,29 +72,16 @@ getWords = I.makeKeywords . fixup . T.groupBy sameClass . T.toUpper
     -- handle empty input
     fixup [] = []
 
-capitalizeSentance :: Text -> Text
-capitalizeSentance = T.concat . (fixup True) . T.groupBy sameClass
+-- Capitalize a sentence. First word get's capitalized by default along
+-- with any word that begins after a sentence ender (.!?)
+capitalizeSentence :: Text -> Text
+capitalizeSentence = T.unwords . snd . mapAccumL go True . T.words
   where
-    -- capitalize word
-    capWord w = case T.uncons w of
-      Just (c, t) -> toUpper c `T.cons` t
-      _           -> w
-    -- detect sentender
-    isEnd w = case T.find (`elem` "!.?") w of
-      Just _  -> True
-      Nothing -> False
-    -- find boundaries
-    sameClass a b = isAlpha a == isAlpha b && isDigit a == isDigit b
-    -- If true, and this is alpha char, cap it
-    fixup True (a:rest)
-      | isAlpha $ T.head a = capWord a : fixup False rest
-    -- 'i' on its own is always capped
-    fixup _ ("i":rest) = "I" : fixup False rest
-    -- If this word has sentence enders, mark for cap
-    fixup _ (a:rest)
-      | isEnd a = a : fixup True rest
-    fixup c (a:rest) = a : fixup c rest
-    fixup _ [] = []
+    go acc a
+      | acc && isAlpha (T.head a) = (False, T.toTitle a)
+      | a == "i"                  = (False, "I")
+      | T.last a `elem` "!.?"     = (True, a)
+      | otherwise                 = (acc, a)
 
 -- | Craft a reply for a given sample period and return the one with the most
 -- surprise
@@ -108,14 +95,15 @@ customCraft :: (Int, Int)
 customCraft (minLength, maxLength) brain phrase = do
   let bst = R.empty 30
       al = R.empty 30
-  replies <- go 1500 bst al
+  times <- state $ randomR (200, 2500)
+  replies <- go times bst al
   if R.curCapacity replies < 1
     then customCraft (minLength, maxLength) brain phrase
     else do
       ind <- rndIndex $ R.curCapacity replies - 1
-      let repl = R.allReplies replies !! ind
-          capped = capitalizeSentance $ R.sReply repl
-      return $ repl { R.sReply = capped }
+      let ind' = if ind < 0 then 0 else ind
+      let repl = R.allReplies replies !! ind'
+      return $ repl { R.sReply = capitalizeSentence $ R.sReply repl }
   where
     go :: Int -> TopReplies -> TopReplies -> State StdGen TopReplies
     -- no more iterations, return best matches if avail, otherwise all
