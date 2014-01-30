@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Data.List (foldl')
 import Data.Maybe (fromJust, isJust)
 import Control.Applicative ((<$>))
 import Control.Monad (when)
@@ -10,7 +9,7 @@ import System.Environment (getArgs)
 import System.Random (getStdGen, StdGen, mkStdGen, setStdGen)
 import System.Exit (exitFailure)
 import Megahaskhal (Brain, loadBrainFromFilename, customCraft, getWords)
-import Megahaskhal.Replies (sReply, sScore)
+import Megahaskhal.Replies (sReply)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import qualified Network.SimpleIRC as SI
@@ -35,6 +34,7 @@ options = [ Option "s" ["seed"] (ReqArg updateSeed "SEED") "set prng SEED"
       -- show errors
       _         -> flags
 
+prefix :: B.ByteString
 prefix = "|" -- TODO: Move this to the configuration file/Types.hs
 
 startsWithPrefix :: B.ByteString -> B.ByteString -> Maybe B.ByteString
@@ -66,8 +66,8 @@ isPM s m = do
 dropPrefix :: SI.IrcMessage -> B.ByteString -> B.ByteString
 dropPrefix m prfx = B.drop (B.length prfx) (SI.mMsg m)
 
-blabber :: Brain -> SI.EventFunc
-blabber brain s m = do
+onMessage :: Brain -> SI.EventFunc
+onMessage brain s m = do
   myNick <- SI.getNickname s
   let isPrfx = startsWithPrefix myNick (SI.mMsg m)
 
@@ -79,35 +79,31 @@ blabber brain s m = do
           else if isPrivMsg then Just "" else Nothing
   when (isJust maybePrfx) $ do
     let prfx = fromJust maybePrfx
-        words = T.pack $ B.unpack $ dropPrefix m prfx
-    reply <- runHal brain words
-    SI.sendMsg s chan $ B.pack . T.unpack $ reply
+        phrase = T.pack $ B.unpack $ dropPrefix m prfx
+    reply <- runHal brain phrase
+    SI.sendMsg s origin $ B.pack . T.unpack $ reply
   where
-    chan = fromJust $ SI.mChan m
+    origin = fromJust $ SI.mOrigin m
 
 main :: IO ()
 main = do
-  (makeFlags, args, errs) <- getOpt Permute options <$> getArgs
-  let flags = foldl' (flip ($)) defaultFlags makeFlags
+  (_, args, errs) <- getOpt Permute options <$> getArgs
+  -- let flags = foldl' (flip ($)) defaultFlags makeFlags
 
-  -- All file loading(that is in elysia's directory) has to be done before calling
-  -- daemonize, because it changes the current working dir.
   case (args, errs) of
-    ([filename], []) -> do
-      result <- loadBrainFromFilename filename
-      case result of
-        Just brain -> startBot brain
-        Nothing    -> die "Unable to read the file"
+    ([filename], []) -> loadBrainFromFilename filename >>=
+        maybe (die "Unable to read the file") startBot
     _ -> do
       mapM_ putStrLn errs
       die "Pass in a file name for the brain."
 
+startBot :: Brain -> IO ()
 startBot brain = do
-  let events = [(SI.Privmsg (blabber brain))]
-      groovie = (SI.mkDefaultConfig "localhost" "benTogo")
+  let events = [(SI.Privmsg (onMessage brain))]
+      groovie = (SI.mkDefaultConfig "localhost" "brotogo")
               {
                 SI.cPort = 26665
-              , SI.cChannels = ["#kgb"] -- Channels to join on connect
+              , SI.cChannels = ["#kgb", "#collo"] -- Channels to join on connect
               , SI.cEvents = events -- Events to bind
               }
   SI.connect groovie False True
@@ -116,7 +112,6 @@ startBot brain = do
 runHal :: Brain -> T.Text -> IO T.Text
 runHal brain phrase = do
   gen <- getStdGen
-  let words = getWords phrase
-      (reply, newGen) = runState (customCraft (50, 12800) brain words) gen
+  let (reply, newGen) = runState (customCraft (25, 5000) brain $ getWords phrase) gen
   setStdGen newGen
   return $ sReply reply

@@ -19,7 +19,7 @@ instance Ord ScoredReply where
 
 data TopReplies = TopReplies { maxCapacity :: Int
                              , curCapacity :: Int
-                             , allReplies  :: [ScoredReply]}
+                             , allReplies  :: [ScoredReply]} deriving (Show)
 
 -- | An empty TopReplies with a specified max capacity
 empty :: Int -> TopReplies
