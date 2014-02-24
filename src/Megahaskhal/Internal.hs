@@ -7,13 +7,13 @@ module Megahaskhal.Internal
        , Brain(..)
        ) where
 
-import Data.Char (isAlphaNum)
-import Data.Text (Text)
-import qualified Data.Set as S
-import qualified Data.Text as T
-import qualified Data.Map.Strict as M
-import Megahaskhal.Tree (Tree)
-import Megahaskhal.Dictionary (Dictionary)
+import           Data.Char              (isAlphaNum)
+import qualified Data.Map.Strict        as M
+import qualified Data.Set               as S
+import           Data.Text              (Text)
+import qualified Data.Text              as T
+import           Megahaskhal.Dictionary (Dictionary)
+import           Megahaskhal.Tree       (Tree)
 
 auxWords :: S.Set Text
 auxWords =
@@ -70,10 +70,10 @@ errorWord :: Text
 errorWord = "<ERROR>"
 
 data Brain = Brain {
-    getForward :: Tree
-    , getBackward :: Tree
-    , getCookie :: Text
-    , getOrder :: Int
+    getForward      :: Tree
+    , getBackward   :: Tree
+    , getCookie     :: Text
+    , getOrder      :: Int
     , getDictionary :: Dictionary
     } deriving (Show)
 

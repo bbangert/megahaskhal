@@ -5,9 +5,9 @@ module Megahaskhal.Dictionary (
   replicateM,
   length ) where
 
-import Prelude hiding (length)
-import Data.Text (Text)
 import qualified Data.Sequence as S
+import           Data.Text     (Text)
+import           Prelude       hiding (length)
 
 type Dictionary = S.Seq Text
 

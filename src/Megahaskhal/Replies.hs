@@ -5,8 +5,8 @@ module Megahaskhal.Replies (
     TopReplies, empty, addReply, maxCapacity, curCapacity, allReplies,
     ) where
 
-import Data.Text (Text)
 import qualified Data.List.Ordered as O
+import           Data.Text         (Text)
 
 data ScoredReply = ScoredReply { sReply :: Text
                                , sScore :: Float} deriving (Show)

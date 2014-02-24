@@ -15,11 +15,11 @@ module Megahaskhal.Tree (
     foldl
     ) where
 
-import Prelude hiding (null, foldl)
-import Data.List (foldl')
-import Data.Vector (Vector, (!))
+import           Data.List   (foldl')
+import           Data.Vector (Vector, (!))
 import qualified Data.Vector as V
-import Data.Word (Word32, Word16)
+import           Data.Word   (Word16, Word32)
+import           Prelude     hiding (foldl, null)
 
 data Tree = Empty
           | Tree { treeSymbol   :: {-# UNPACK #-} !Word16

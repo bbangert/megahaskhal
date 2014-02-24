@@ -1,4 +1,7 @@
-{-# LANGUAGE OverloadedStrings, BangPatterns, FlexibleContexts #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module Megahaskhal (
     loadBrainFromFilename,
     reply,
@@ -9,30 +12,30 @@ module Megahaskhal (
     Brain
     ) where
 
-import Control.Applicative ((<$>))
-import Control.Monad (replicateM)
-import Control.Monad.State (State, state, MonadState)
-import Data.Char (isAlpha, isAlphaNum, isDigit, toUpper)
-import Data.List (foldl', mapAccumL)
-import Data.Maybe (mapMaybe)
-import Data.Text (Text)
-import System.Random (randomR, StdGen, Random)
-import qualified Data.Text as T
-import qualified Data.Vector as V
+import           Control.Applicative       ((<$>))
+import           Control.Monad             (replicateM)
+import           Control.Monad.State       (MonadState, State, state)
+import           Data.Char                 (isAlpha, isAlphaNum, isDigit,
+                                            toUpper)
+import           Data.List                 (foldl', mapAccumL)
+import           Data.Maybe                (mapMaybe)
+import           Data.Text                 (Text)
+import qualified Data.Text                 as T
+import qualified Data.Vector               as V
+import           System.Random             (Random, StdGen, randomR)
 
-import Megahaskhal.Replies (ScoredReply (ScoredReply), TopReplies)
-import Megahaskhal.Serialization (loadBrainFromFilename)
-import Megahaskhal.Tree (
-    Context, newContext, updateContext, createBackContext,
-    Tree, lastTree,
-    findSymbol,
-    getCount, getChildren, getSymbol, getUsage,
-    )
-import qualified Megahaskhal.Replies as R
-import qualified Megahaskhal.Tree as MT
-import qualified Megahaskhal.Internal as I
-import Megahaskhal.Dictionary (Dictionary, findWord, lookupIndex)
-import Megahaskhal.Internal (Brain)
+import           Megahaskhal.Dictionary    (Dictionary, findWord, lookupIndex)
+import           Megahaskhal.Internal      (Brain)
+import qualified Megahaskhal.Internal      as I
+import           Megahaskhal.Replies       (ScoredReply (ScoredReply),
+                                            TopReplies)
+import qualified Megahaskhal.Replies       as R
+import           Megahaskhal.Serialization (loadBrainFromFilename)
+import           Megahaskhal.Tree          (Context, Tree, createBackContext,
+                                            findSymbol, getChildren, getCount,
+                                            getSymbol, getUsage, lastTree,
+                                            newContext, updateContext)
+import qualified Megahaskhal.Tree          as MT
 
 -- | Aliases for easy reading
 type Keywords = [Int]

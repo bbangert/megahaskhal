@@ -3,18 +3,18 @@ module Megahaskhal.Serialization (
     loadBrainFromFilename,
     ) where
 
-import System.IO  (withFile, IOMode( ReadMode ))
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import           Control.Applicative      ((<$>), (<*>))
+import qualified Data.Binary.Get          as G
+import qualified Data.ByteString.Lazy     as BL
+import qualified Data.Text                as T
+import qualified Data.Text.Encoding       as T
 import qualified Data.Text.Encoding.Error as T
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Binary.Get as G
-import qualified Data.Vector as V
-import Control.Applicative ((<$>), (<*>))
+import qualified Data.Vector              as V
+import           System.IO                (IOMode (ReadMode), withFile)
 
-import Megahaskhal.Internal (Brain (Brain))
-import Megahaskhal.Tree (Tree, mkTree, getChildren)
-import qualified Megahaskhal.Dictionary as D
+import qualified Megahaskhal.Dictionary   as D
+import           Megahaskhal.Internal     (Brain (Brain))
+import           Megahaskhal.Tree         (Tree, getChildren, mkTree)
 
 w8, w16, w32 :: G.Get Int
 w8 = fromIntegral <$> G.getWord8

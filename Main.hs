@@ -1,17 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Data.List (foldl')
-import Control.Applicative ((<$>))
-import Control.Monad.State (runState)
-import System.Environment (getArgs)
-import System.Random (getStdGen, StdGen, mkStdGen)
-import System.Exit (exitFailure)
-import Megahaskhal (Brain, loadBrainFromFilename, customCraft, getWords)
-import Megahaskhal.Replies (sReply, sScore)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import System.Console.GetOpt (getOpt, ArgOrder(..), ArgDescr(..), OptDescr(..))
+import           Control.Applicative   ((<$>))
+import           Control.Monad.State   (runState)
+import           Data.List             (foldl')
+import qualified Data.Text             as T
+import qualified Data.Text.IO          as T
+import           System.Console.GetOpt (ArgDescr (..), ArgOrder (..),
+                                        OptDescr (..), getOpt)
+import           System.Environment    (getArgs)
+import           System.Exit           (exitFailure)
+import           System.Random         (StdGen, getStdGen, mkStdGen)
+
+import           Megahaskhal           (Brain, customCraft, getWords,
+                                        loadBrainFromFilename)
+import           Megahaskhal.Replies   (sReply, sScore)
 
 die :: T.Text -> IO ()
 die s = T.putStrLn s >> exitFailure

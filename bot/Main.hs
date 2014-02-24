@@ -1,20 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Data.Maybe (fromJust, isJust)
-import Control.Applicative ((<$>))
-import Control.Monad (when)
-import Control.Monad.State (runState)
-import System.Environment (getArgs)
-import System.Random (getStdGen, StdGen, mkStdGen, setStdGen)
-import System.Exit (exitFailure)
-import Megahaskhal (Brain, loadBrainFromFilename, customCraft, getWords)
-import Megahaskhal.Replies (sReply)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import qualified Network.SimpleIRC as SI
+import           Control.Applicative   ((<$>))
+import           Control.Monad         (when)
+import           Control.Monad.State   (runState)
 import qualified Data.ByteString.Char8 as B
-import System.Console.GetOpt (getOpt, ArgOrder(..), ArgDescr(..), OptDescr(..))
+import           Data.Maybe            (fromJust, isJust)
+import qualified Data.Text             as T
+import qualified Data.Text.IO          as T
+import           Megahaskhal           (Brain, customCraft, getWords,
+                                        loadBrainFromFilename)
+import           Megahaskhal.Replies   (sReply)
+import qualified Network.SimpleIRC     as SI
+import           System.Console.GetOpt (ArgDescr (..), ArgOrder (..),
+                                        OptDescr (..), getOpt)
+import           System.Environment    (getArgs)
+import           System.Exit           (exitFailure)
+import           System.Random         (StdGen, getStdGen, mkStdGen, setStdGen)
 
 die :: T.Text -> IO ()
 die s = T.putStrLn s >> exitFailure
