@@ -12,7 +12,7 @@ module Megahaskhal (
 import Control.Applicative ((<$>))
 import Control.Monad (replicateM)
 import Control.Monad.State (State, state, MonadState)
-import Data.Char (isAlpha, isAlphaNum, isDigit)
+import Data.Char (isAlpha, isAlphaNum, isDigit, toUpper)
 import Data.List (foldl', mapAccumL)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
@@ -77,8 +77,9 @@ getWords = I.makeKeywords . fixup . T.groupBy sameClass . T.toUpper
 capitalizeSentence :: Text -> Text
 capitalizeSentence = T.unwords . snd . mapAccumL go True . T.words
   where
+    capWord w = maybe w (\(c, r) -> T.cons (toUpper c) r) (T.uncons w)
     go acc a
-      | acc && isAlpha (T.head a) = (False, T.toTitle a)
+      | acc && isAlpha (T.head a) = (False, capWord a)
       | a == "i"                  = (False, "I")
       | T.last a `elem` "!.?"     = (True, a)
       | otherwise                 = (acc, a)
