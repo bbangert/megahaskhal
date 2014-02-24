@@ -1,6 +1,6 @@
 module Megahaskhal.Tree (
     Context,
-    Tree,
+    Tree (..),
     mkTree,
     getSymbol,
     getUsage,
@@ -11,10 +11,11 @@ module Megahaskhal.Tree (
     findSymbol,
     createBackContext,
     newContext,
-    updateContext
+    updateContext,
+    foldl
     ) where
 
-import Prelude hiding (null)
+import Prelude hiding (null, foldl)
 import Data.List (foldl')
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as V
@@ -28,6 +29,11 @@ data Tree = Empty
                  } deriving (Eq, Show)
 
 type Context = [Tree]
+
+foldl :: (a -> Tree -> a) -> a -> Tree -> a
+foldl _ acc Empty = acc
+foldl f acc x = V.foldl (foldl f) acc' $ treeChildren x
+    where acc' = f acc x
 
 mkTree :: Word16 -> Word32 -> Word16 -> Vector Tree -> Tree
 mkTree = Tree
