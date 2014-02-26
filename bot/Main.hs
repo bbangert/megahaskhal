@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import           Control.Applicative   ((<$>))
 import           Control.Monad         (when)
+import           Control.Monad.Error   (join, liftIO, runErrorT)
 import           Control.Monad.State   (runState)
 import qualified Data.ByteString.Char8 as B
+import           Data.ConfigFile       (CPError, emptyCP, get, readfile)
+import           Data.List.Split       (splitOneOf)
 import           Data.Maybe            (fromJust, isJust)
 import qualified Data.Text             as T
 import qualified Data.Text.IO          as T
@@ -12,29 +14,20 @@ import           Megahaskhal           (Brain, customCraft, getWords,
                                         loadBrainFromFilename)
 import           Megahaskhal.Replies   (sReply)
 import qualified Network.SimpleIRC     as SI
-import           System.Console.GetOpt (ArgDescr (..), ArgOrder (..),
-                                        OptDescr (..), getOpt)
 import           System.Environment    (getArgs)
 import           System.Exit           (exitFailure)
-import           System.Random         (StdGen, getStdGen, mkStdGen, setStdGen)
+import           System.Random         (StdGen, getStdGen, setStdGen)
 
 die :: T.Text -> IO ()
 die s = T.putStrLn s >> exitFailure
 
 data Flags = Flags { fGetStdGen :: IO StdGen }
 
-defaultFlags :: Flags
-defaultFlags = Flags { fGetStdGen = getStdGen }
-
-options :: [OptDescr (Flags -> Flags)]
-options = [ Option "s" ["seed"] (ReqArg updateSeed "SEED") "set prng SEED"
-          ]
-  where
-    updateSeed d flags = case reads d of
-      [(n, "")] -> flags { fGetStdGen = return (mkStdGen n) }
-      -- ignore invalid seeds, might make sense to change this around to
-      -- show errors
-      _         -> flags
+data Settings = Settings { ircServer :: String
+                         , ircPort   :: Int
+                         , ircNick  :: String
+                         , ircChannels  :: [String]
+                         } deriving (Show)
 
 prefix :: B.ByteString
 prefix = "|" -- TODO: Move this to the configuration file/Types.hs
@@ -89,23 +82,33 @@ onMessage brain s m = do
 
 main :: IO ()
 main = do
-  (_, args, errs) <- getOpt Permute options <$> getArgs
-  -- let flags = foldl' (flip ($)) defaultFlags makeFlags
+  args <- getArgs
+  case args of
+    [brainFile, configFile] -> do
+      results <- loadConfig brainFile configFile
+      case results of
+        Left errs -> ioError $ userError $ "Error loading megabot: " ++ errs
+        Right (brain, settings) -> startBot brain settings
+    _ -> ioError $ userError "Usage: megabot BRAINFILE CONFIGFILE"
 
-  case (args, errs) of
-    ([filename], []) -> loadBrainFromFilename filename >>=
-        maybe (die "Unable to read the file") startBot
-    _ -> do
-      mapM_ putStrLn errs
-      die "Pass in a file name for the brain."
+loadConfig :: String -> String -> IO (Either String (Brain, Settings))
+loadConfig brainFile configFile = do
+  brainResult <- loadBrainFromFilename brainFile
+  case brainResult of
+    Nothing -> return $ Left "Unable to load brain file"
+    Just brain -> do
+      parsed <- parseConfigFile configFile
+      case parsed of
+        Left (_, errs) -> return $ Left $ "Unable to parse config: " ++ errs
+        Right settings -> return $ Right (brain, settings)
 
-startBot :: Brain -> IO ()
-startBot brain = do
+startBot :: Brain -> Settings -> IO ()
+startBot brain settings = do
   let events = [(SI.Privmsg (onMessage brain))]
-      groovie = (SI.mkDefaultConfig "localhost" "brotogo")
+      groovie = (SI.mkDefaultConfig (ircServer settings) $ ircNick settings)
               {
-                SI.cPort = 26665
-              , SI.cChannels = ["#kgb", "#collo"] -- Channels to join on connect
+                SI.cPort = ircPort settings
+              , SI.cChannels = ircChannels settings -- Channels to join on connect
               , SI.cEvents = events -- Events to bind
               }
   SI.connect groovie False True
@@ -117,3 +120,14 @@ runHal brain phrase = do
   let (reply, newGen) = runState (customCraft (25, 5000) brain $ getWords phrase) gen
   setStdGen newGen
   return $ sReply reply
+
+parseConfigFile :: String
+                -> IO (Either CPError Settings)
+parseConfigFile filename = runErrorT $ do
+  cp <- join $ liftIO $ readfile emptyCP filename
+  server <- get cp "DEFAULT" "server"
+  port <- get cp "DEFAULT" "port"
+  nick <- get cp "DEFAULT" "nick"
+  chans <- get cp "DEFAULT" "channels"
+  let channels = filter (/= "") $ splitOneOf ", " $ chans
+  return $ Settings server port nick channels

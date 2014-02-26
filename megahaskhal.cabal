@@ -41,6 +41,7 @@ executable megabot
   Build-depends:
     base >=4.6 && <4.7,
     binary >= 0.7.1.0 && <0.8,
+    ConfigFile      >= 1.1,
     containers >= 0.5.0.0,
     bytestring >= 0.10.0.2,
     random >= 1.0.1.1,
@@ -49,7 +50,8 @@ executable megabot
     text >= 1.1.0,
     megahaskhal >= 0.1.0.0,
     data-ordlist >= 0.2,
-    simpleirc >=0.3
+    simpleirc >=0.3,
+    split    >= 0.2.2
   ghc-options: -O2 -Wall -threaded -rtsopts
 
 Library
