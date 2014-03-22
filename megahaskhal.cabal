@@ -72,16 +72,17 @@ Library
   if flag(developer)
     ghc-prof-options: -auto-all
 
-  Build-depends:
-    base >=4.6 && <4.7,
-    binary >= 0.7.1.0 && <0.8,
-    containers >= 0.5.0.0,
-    bytestring >= 0.10.0.2,
-    random >= 1.0.1.1,
-    mtl >= 2.1.2,
-    vector >= 0.10.0.1,
-    text >= 1.1.0,
-    data-ordlist >= 0.2
+  Build-depends:    base            >= 4.6      && <4.7
+                  , binary          >= 0.7.1.0  && <0.8
+                  , containers      >= 0.5.0.0
+                  , bytestring      >= 0.10.0.2
+                  , random          >= 1.0.1.1
+                  , mtl             >= 2.1.2
+                  , vector          >= 0.10.0.1
+                  , text            >= 1.1.0
+                  , data-ordlist    >= 0.2
+                  , random-fu       >= 0.1
+                  , random-extras   >= 0.18.1
 
   Hs-source-dirs:
     src
