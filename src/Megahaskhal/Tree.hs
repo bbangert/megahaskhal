@@ -85,15 +85,16 @@ findSymbol :: Tree -> Int -> Tree
 findSymbol Empty _ = Empty
 findSymbol t symbol =
   case binsearch children symbol 0 (V.length children - 1) of
-    Nothing -> Empty
-    Just x -> children ! x
+    Left _ -> Empty
+    Right x -> children ! x
+  where children = treeChildren t
   where children = treeChildren t
 
-binsearch :: V.Vector Tree -> Int -> Int -> Int -> Maybe Int -- list, value, low, high, return int
+binsearch :: V.Vector Tree -> Int -> Int -> Int -> Either Int Int -- list, value, low, high, return int
 binsearch xs value low high
-   | high < low       = Nothing
+   | high < low       = Left value
    | pivot > value  = binsearch xs value low (mid-1)
    | pivot < value  = binsearch xs value (mid+1) high
-   | otherwise        = Just mid
+   | otherwise        = Right mid
    where mid = low + ((high - low) `div` 2)
          pivot = getSymbol $ xs ! mid
