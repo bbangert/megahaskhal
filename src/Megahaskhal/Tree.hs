@@ -15,11 +15,15 @@ module Megahaskhal.Tree (
     foldl
     ) where
 
-import           Data.List   (foldl')
-import           Data.Vector (Vector, (!))
-import qualified Data.Vector as V
-import           Data.Word   (Word16, Word32)
-import           Prelude     hiding (foldl, null)
+import           Control.Monad       (forM_)
+import           Control.Monad.ST    (ST, runST)
+import           Data.List           (foldl')
+import           Data.Vector         (Vector, (!))
+import qualified Data.Vector         as IV
+import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Mutable as VM
+import           Data.Word           (Word16, Word32)
+import           Prelude             hiding (foldl, null)
 
 data Tree = Empty
           | Tree { treeSymbol   :: {-# UNPACK #-} !Word16
@@ -28,11 +32,11 @@ data Tree = Empty
                  , treeChildren :: {-# UNPACK #-} !(Vector Tree)
                  } deriving (Eq, Show)
 
-type Context = [Tree]
+type Context = Vector Tree
 
 foldl :: (a -> Tree -> a) -> a -> Tree -> a
 foldl _ acc Empty = acc
-foldl f acc x = V.foldl (foldl f) acc' $ treeChildren x
+foldl f acc x = IV.foldl (foldl f) acc' $ treeChildren x
     where acc' = f acc x
 
 mkTree :: Word16 -> Word32 -> Word16 -> Vector Tree -> Tree
@@ -49,19 +53,24 @@ getChildren = treeChildren
 -- | Create a new context initialized with a tree for the given order
 -- size. Empty tree's will fill in order slots.
 newContext :: Tree -> Int -> Context
-newContext t n = t : replicate n Empty
+newContext t n = IV.fromList $ t : replicate n Empty
 
 -- | Updates the context by creating a new context that has the symbol located
--- in the context where possible that will be 'order+!' left.
+-- in the context where possible that will be 'order+1' left.
 updateContext :: Context              -- ^ Front portion of context to update
               -> Int                  -- ^ Order
               -> Int                  -- ^ Symbol to locate in the tree
               -> Context              -- ^ The new context
-updateContext ctx order symbol =
-  head ctx : updateContext' (take (order-1) ctx) symbol
+updateContext ctx _ symbol = runST $ updateContext' symbol ctx
 
-updateContext' :: Context -> Int -> Context
-updateContext' ctx symbol = map (`findSymbol` symbol) ctx
+updateContext' :: Int -> Context -> ST s Context
+updateContext' symbol ctx = do
+  vec <- V.thaw ctx
+  let vecLen = VM.length vec - 1
+  forM_ (reverse [1..vecLen]) $ \index -> do
+    prior <- VM.unsafeRead vec (index-1)
+    VM.unsafeWrite vec index $ findSymbol prior symbol
+  V.unsafeFreeze vec
 
 -- | Create a context suitable for navigating backwards based on the symbols
 -- used in the current reply using a starting tree.
@@ -90,9 +99,9 @@ findSymbol t symbol =
   where children = treeChildren t
   where children = treeChildren t
 
-binsearch :: V.Vector Tree -> Int -> Int -> Int -> Either Int Int -- list, value, low, high, return int
+binsearch :: IV.Vector Tree -> Int -> Int -> Int -> Either Int Int -- list, value, low, high, return int
 binsearch xs value low high
-   | high < low       = Left value
+   | high < low       = Left mid
    | pivot > value  = binsearch xs value low (mid-1)
    | pivot < value  = binsearch xs value (mid+1) high
    | otherwise        = Right mid
