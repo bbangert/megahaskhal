@@ -1,8 +1,19 @@
-{-| Core reply generation facilities
+{- |Core reply generation facilities
 
-    These functions provide various ways to generate, filter, and
-    restrict the final set of replies created in response to a phrase
-    for a supplied 'Megahaskhal.Internal.Brain'.
+These functions provide various ways to generate, filter, and restrict
+the final set of replies created in response to a phrase for a supplied
+'Megahaskhal.Internal.Brain'.
+
+Example usage to generate a response provided a brain:
+
+>  import qualified Data.Text as T
+>  import Megahaskhal       (Brain)
+>  import Megahaskhal.Reply (generateReply, getWords)
+>
+>  printReply :: Brain -> IO T.Text
+>  printReply brain = do
+>    phrase <- getLine
+>    generateReply brain (getWords phrase)
 
 -}
 
@@ -16,9 +27,8 @@ module Megahaskhal.Reply (
   -- * Pipe Components
   -- $pipes
     replyProducer
-  , dropShortReply
-  , dropLongReply
-  , generateReplies
+  , collectTopReplies
+  , generateReply
 
   -- * Replies
   -- $replies
@@ -91,44 +101,34 @@ replyProducer brain phrase = do
   lift $ setStdGen newGen
   replyProducer brain phrase
 
--- | Drop replies that are shorter than the length specified
-dropShortReply :: Int -> Pipe ScoredReply ScoredReply IO ()
-dropShortReply n = do
+dropOutsideBounds :: Int -> Int -> Pipe ScoredReply ScoredReply IO ()
+dropOutsideBounds l u = do
   repl <- await
   let repLen = T.length $ sReply repl
-  if repLen > n
-    then yield repl >> dropShortReply n
-    else dropShortReply n
-
--- | Drop replies that are longer than the length specified
-dropLongReply :: Int -> Pipe ScoredReply ScoredReply IO ()
-dropLongReply n = do
-  repl <- await
-  let repLen = T.length $ sReply repl
-  if repLen < n
-    then yield repl >> dropLongReply n
-    else dropLongReply n
+  if l <= repLen && repLen <= u
+    then yield repl >> dropOutsideBounds l u
+    else dropOutsideBounds l u
 
 -- | Collect top replies
 collectTopReplies :: TopReplies -> Parser ScoredReply IO TopReplies
 collectTopReplies tr = do
-    reply <- draw
-    case reply of
+    repl <- draw
+    case repl of
         Nothing -> return tr
         Just r  -> collectTopReplies (addReply r tr)
 
 -- | Generate a suitable amount of replies and return the highest scored
-generateReplies :: Brain -> [Text] -> IO Text
-generateReplies brain phrase = do
-    times <- getStdRandom (randomR (500,1500))
+generateReply :: Brain -> [Text] -> IO Text
+generateReply brain phrase = do
+    times <- getStdRandom (randomR (800,1500))
     replies <- evalStateT parser $
-        producer >-> dropShortReply 25
-                 >-> dropLongReply 5000
+        producer >-> dropOutsideBounds 25 5000
                  >-> PL.take times
     let cc = length $ allReplies replies
     index <- getStdRandom (randomR (0, max 0 (cc-1)))
     let repl = allReplies replies !! index
     return $ capitalizeSentence . sReply $ repl
+    -- return $ repl { sReply=(capitalizeSentence . sReply) repl }
     where producer = replyProducer brain phrase
           parser   = collectTopReplies $ empty 20
 
@@ -251,16 +251,18 @@ processWords ctx dict order keywords replies usedKey symbol = do
     replyWords = symbol:replies
     newCtx = updateContext ctx order symbol
 
--- Evaluate the 'surprise' factor of a given choice of reply words
--- The surprise factor is based entirely around whether the chosen reply
--- includes words used in the keywords that were supplied.
--- For every word in the reply, the context is built up and iterated over
--- regardless of if the word is a keyword. When a keyword is hit, a subloop
--- runs for that portion over the entire context at that state determining if
--- any of the tree's contain the symbol and updating the probability, at the
--- end of which the entropy is updated.
+{-| Evaluate the 'surprise' factor of a given choice of reply words
+
+The surprise factor is based entirely around whether the chosen reply
+includes words used in the keywords that were supplied. For every word
+in the reply, the context is built up and iterated over regardless of
+if the word is a keyword. When a keyword is hit, a subloop runs for
+that portion over the entire context at that state determining if any
+of the tree's contain the symbol and updating the probability, at the
+end of which the entropy is updated.
+
+-}
 evaluateReply :: Brain -> Keywords -> Replies -> Float
-evaluateReply _ [] _ = 0
 evaluateReply (Brain fTree bTree _ order _) keys repl
   | num < 8   = entropy
   | num < 16  = entropy / sqrt (num-1)
@@ -274,16 +276,16 @@ evaluateReply (Brain fTree bTree _ order _) keys repl
     num = eNum bctx
     entropy = eEntropy bctx
 
--- entropy and num accumulator that retains updated context as each tree
--- in the context is stepped through
+{- entropy and num accumulator that retains updated context as each tree
+in the context is stepped through -}
 evalulateSymbols :: Order
                  -> Keywords
                  -> EContext -- ^ Accumulator
                  -> Int      -- ^ Current symbol
                  -> EContext -- ^ Accumulated value
 evalulateSymbols order keys acc@(EContext accNum accEntropy ctx) symbol
-  | symbol `elem` keys ||
-    null keys = EContext (accNum + 1) newEntropy newctx
+  | symbol `elem` keys
+    || null keys = EContext (accNum + 1) newEntropy newctx
   | otherwise          = acc { eContext = newctx }
   where
     -- we always update the context with the symbol on each step, even
@@ -314,13 +316,17 @@ evaluateContext symbol (!count, !prob) tree =
 {-| Transform a single @Text@ phrase into its component parts suitable to
     be fed into a reply generating function.
 
-    Rules for tokenization:
-    Four character classes: alpha, digit, apostrophe, and other
-    If the character class changed from the previous to current character, then
-    it is a boundary. The only special case is alpha -> apostrophe -> alpha,
-    which is not considered to be a boundary (it's considered to be alpha).
-    If the last word is alphanumeric then add a last word of ".", otherwise
-    replace the last word with "." unless it already ends with one of "!.?".
+Rules for tokenization:
+Four character classes: alpha, digit, apostrophe, and other
+
+If the character class changed from the previous to current character,
+then it is a boundary. The only special case is alpha -> apostrophe ->
+alpha, which is not considered to be a boundary (it's considered to be
+alpha).
+
+If the last word is alphanumeric then add a last word of ".", otherwise
+replace the last word with "." unless it already ends with one of
+"!.?".
 
 -}
 getWords :: Text -> [Text]
