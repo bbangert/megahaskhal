@@ -10,23 +10,23 @@ import           Data.List.Split       (splitOneOf)
 import           Data.Maybe            (fromJust, isJust)
 import qualified Data.Text             as T
 import qualified Data.Text.IO          as T
-import           Megahaskhal           (Brain, customCraft, getWords,
-                                        loadBrainFromFilename)
-import           Megahaskhal.Replies   (sReply)
 import qualified Network.SimpleIRC     as SI
 import           System.Environment    (getArgs)
 import           System.Exit           (exitFailure)
 import           System.Random         (StdGen, getStdGen, setStdGen)
+
+import           Megahaskhal           (Brain, getWords, loadBrainFromFilename)
+import           Megahaskhal.Reply     (generateReplies, sReply, sScore)
 
 die :: T.Text -> IO ()
 die s = T.putStrLn s >> exitFailure
 
 data Flags = Flags { fGetStdGen :: IO StdGen }
 
-data Settings = Settings { ircServer :: String
-                         , ircPort   :: Int
-                         , ircNick  :: String
-                         , ircChannels  :: [String]
+data Settings = Settings { ircServer   :: String
+                         , ircPort     :: Int
+                         , ircNick     :: String
+                         , ircChannels :: [String]
                          } deriving (Show)
 
 prefix :: B.ByteString
@@ -92,15 +92,12 @@ main = do
     _ -> ioError $ userError "Usage: megabot BRAINFILE CONFIGFILE"
 
 loadConfig :: String -> String -> IO (Either String (Brain, Settings))
-loadConfig brainFile configFile = do
-  brainResult <- loadBrainFromFilename brainFile
-  case brainResult of
-    Nothing -> return $ Left "Unable to load brain file"
-    Just brain -> do
-      parsed <- parseConfigFile configFile
-      case parsed of
-        Left (_, errs) -> return $ Left $ "Unable to parse config: " ++ errs
-        Right settings -> return $ Right (brain, settings)
+loadConfig brainFile configFile = loadBrainFromFilename brainFile >>= loadResult
+  where
+    loadResult Nothing      = return $ Left "Unable to load brain file"
+    loadResult (Just brain) = parseConfigFile configFile >>= parseResult brain
+    parseResult brain (Left (_, errs)) = return $ Left $ "Unable to parse config: " ++ errs
+    parseResult brain (Right settings) = return $ Right (brain, settings)
 
 startBot :: Brain -> Settings -> IO ()
 startBot brain settings = do
@@ -115,11 +112,7 @@ startBot brain settings = do
   return ()
 
 runHal :: Brain -> T.Text -> IO T.Text
-runHal brain phrase = do
-  gen <- getStdGen
-  let (reply, newGen) = runState (customCraft (25, 5000) brain $ getWords phrase) gen
-  setStdGen newGen
-  return $ sReply reply
+runHal brain phrase = generateReplies brain (getWords phrase)
 
 parseConfigFile :: String
                 -> IO (Either CPError Settings)

@@ -62,7 +62,7 @@ Library
     Megahaskhal.Serialization
     Megahaskhal.Tree
     Megahaskhal.Dictionary
-    Megahaskhal.Replies
+    Megahaskhal.Reply
 
   -- other-modules:
   -- other-extensions:
@@ -83,6 +83,8 @@ Library
                   , data-ordlist    >= 0.2
                   , random-fu       >= 0.1
                   , random-extras   >= 0.18.1
+                  , pipes           >= 4.1.0
+                  , pipes-parse     >= 3.0.1
 
   Hs-source-dirs:
     src

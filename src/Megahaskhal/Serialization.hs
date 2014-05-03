@@ -1,7 +1,14 @@
+{-| Brain serialization and deserialization
+
+-}
+
 {-# LANGUAGE OverloadedStrings #-}
+
 module Megahaskhal.Serialization (
-    loadBrainFromFilename,
-    ) where
+  -- * Deserialization
+    loadBrainFromFilename
+
+  ) where
 
 import           Control.Applicative      ((<$>), (<*>))
 import qualified Data.Binary.Get          as G
@@ -24,6 +31,7 @@ w32 = fromIntegral <$> G.getWord32le
 lprefix :: Monad m => m Int -> (Int -> m a -> m b) -> m a -> m b
 lprefix len rep action = len >>= flip rep action . fromIntegral
 
+-- | Load a serialized brain from the filesystem
 loadBrainFromFilename :: String -> IO (Maybe Brain)
 loadBrainFromFilename "" = return Nothing
 loadBrainFromFilename fileName = withFile fileName ReadMode parseFile

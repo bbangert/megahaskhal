@@ -3,7 +3,6 @@ module Megahaskhal.Internal
        ( auxWords
        , isAuxWord
        , makeKeywords
-       , newBrainOrder
        , Brain(..)
        ) where
 
@@ -111,6 +110,3 @@ makeKeywords lst = removeDuplicates $ firstBatch ++ secondBatch
     swapped = map swapIfPossible desiredWords
     firstBatch = filter (not . isBanAuxword) swapped
     secondBatch = filter isAuxWord swapped
-
-newBrainOrder :: Brain -> Int -> Brain
-newBrainOrder ob ord = ob { getOrder = ord }

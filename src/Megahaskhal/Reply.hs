@@ -10,46 +10,58 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Megahaskhal.Reply (
-    -- * Pipe Components
-    -- $pipes
-      replyProducer
-    , dropShortReply
-    , dropLongReply
+  -- * Pipe Components
+  -- $pipes
+    replyProducer
+  , dropShortReply
+  , dropLongReply
+  , generateReplies
 
-    -- * Replies
-    -- $replies
-    , ScoredReply (..)
-    , reply
+  -- * Replies
+  -- $replies
+  , ScoredReply (..)
+  , TopReplies (..)
+  , empty
+  , addReply
+  , reply
 
-    -- * Utilities
-    -- $utilities
-    , getWords
-    , capitalizeSentence
+  -- * Utilities
+  -- $utilities
+  , getWords
+  , capitalizeSentence
 
-    ) where
+  ) where
 
-import           Control.Applicative    ((<$>))
-import           Control.Monad.State    (MonadState, State, runState, state)
-import           Data.Char              (isAlpha, isAlphaNum, isDigit, toUpper)
-import           Data.List              (foldl', mapAccumL)
-import           Data.Maybe             (mapMaybe)
-import           Data.Text              (Text)
-import qualified Data.Text              as T
-import qualified Data.Vector            as V
-import           Pipes                  (Pipe, Producer, await, lift, yield)
-import           System.Random          (Random, StdGen, getStdGen, randomR,
-                                         setStdGen)
+import           Control.Applicative        ((<$>))
+import           Control.Monad.State        (MonadState, State, runState, state)
+import           Control.Monad.State.Strict (evalStateT)
+import           Data.Char                  (isAlpha, isAlphaNum, isDigit,
+                                             toUpper)
+import           Data.List                  (foldl', mapAccumL)
+import qualified Data.List.Ordered          as O
+import           Data.Maybe                 (mapMaybe)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
+import qualified Data.Vector                as V
+import           Pipes                      (Pipe, Producer, await, lift, yield,
+                                             (>->))
+import           Pipes.Parse                (Parser, draw)
+import qualified Pipes.Prelude              as PL
+import           System.Random              (Random, StdGen, getStdGen,
+                                             getStdRandom, randomR, setStdGen)
 
-import           Megahaskhal.Dictionary (Dictionary, findWord, lookupIndex)
-import           Megahaskhal.Internal   (Brain (..))
-import qualified Megahaskhal.Internal   as I
-import           Megahaskhal.Tree       (Context, Tree, createBackContext,
-                                         findSymbol, getChildren, getCount,
-                                         getSymbol, getUsage, lastTree,
-                                         newContext, updateContext)
-import qualified Megahaskhal.Tree       as MT
+
+import           Megahaskhal.Dictionary     (Dictionary, findWord, lookupIndex)
+import           Megahaskhal.Internal       (Brain (..))
+import qualified Megahaskhal.Internal       as I
+import           Megahaskhal.Tree           (Context, Tree, createBackContext,
+                                             findSymbol, getChildren, getCount,
+                                             getSymbol, getUsage, lastTree,
+                                             newContext, updateContext)
+import qualified Megahaskhal.Tree           as MT
 
 -- | Aliases for easy reading
 type Keywords = [Int]
@@ -97,6 +109,29 @@ dropLongReply n = do
     then yield repl >> dropLongReply n
     else dropLongReply n
 
+-- | Collect top replies
+collectTopReplies :: TopReplies -> Parser ScoredReply IO TopReplies
+collectTopReplies tr = do
+    reply <- draw
+    case reply of
+        Nothing -> return tr
+        Just r  -> collectTopReplies (addReply r tr)
+
+-- | Generate a suitable amount of replies and return the highest scored
+generateReplies :: Brain -> [Text] -> IO Text
+generateReplies brain phrase = do
+    times <- getStdRandom (randomR (500,1500))
+    replies <- evalStateT parser $
+        producer >-> dropShortReply 25
+                 >-> dropLongReply 5000
+                 >-> PL.take times
+    let cc = length $ allReplies replies
+    index <- getStdRandom (randomR (0, max 0 (cc-1)))
+    let repl = allReplies replies !! index
+    return $ capitalizeSentence . sReply $ repl
+    where producer = replyProducer brain phrase
+          parser   = collectTopReplies $ empty 20
+
 {- $replies
     Reply creation basic components.
 
@@ -111,6 +146,23 @@ instance Eq ScoredReply where
 
 instance Ord ScoredReply where
     x `compare` y = sScore x `compare` sScore y
+
+data TopReplies = TopReplies { maxCapacity :: Int
+                             , curCapacity :: Int
+                             , allReplies  :: [ScoredReply]} deriving (Show)
+
+-- | An empty TopReplies with a specified max capacity
+empty :: Int -> TopReplies
+empty x = TopReplies x 0 []
+
+addReply :: ScoredReply -> TopReplies -> TopReplies
+addReply s (TopReplies mC _ []) = TopReplies mC 1 [s]
+addReply s t@(TopReplies mC cC replies@(h:rst))
+    | any (replyEquals s) replies = t
+    | cC < mC   = TopReplies mC (cC+1) $ O.insertBag s replies
+    | s > h     = t { allReplies = O.insertBag s rst }
+    | otherwise = t
+    where replyEquals x y = sReply x == sReply y
 
 -- | Reply to a phrase with a given brain
 reply :: Brain                        -- ^ A brain to start with
@@ -230,7 +282,8 @@ evalulateSymbols :: Order
                  -> Int      -- ^ Current symbol
                  -> EContext -- ^ Accumulated value
 evalulateSymbols order keys acc@(EContext accNum accEntropy ctx) symbol
-  | symbol `elem` keys = EContext (accNum + 1) newEntropy newctx
+  | symbol `elem` keys ||
+    null keys = EContext (accNum + 1) newEntropy newctx
   | otherwise          = acc { eContext = newctx }
   where
     -- we always update the context with the symbol on each step, even

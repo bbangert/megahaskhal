@@ -12,9 +12,8 @@ import           System.Environment    (getArgs)
 import           System.Exit           (exitFailure)
 import           System.Random         (StdGen, getStdGen, mkStdGen)
 
-import           Megahaskhal           (Brain, customCraft, getWords,
-                                        loadBrainFromFilename)
-import           Megahaskhal.Replies   (sReply, sScore)
+import           Megahaskhal           (Brain, getWords, loadBrainFromFilename)
+import           Megahaskhal.Reply     (generateReplies, sReply, sScore)
 
 die :: T.Text -> IO ()
 die s = T.putStrLn s >> exitFailure
@@ -42,16 +41,15 @@ main = do
     case (args, errs) of
       ([filename], []) ->
         loadBrainFromFilename filename >>=
-          maybe (die "Unable to load from file.") (`runHal` gen)
+          maybe (die "Unable to load from file.") runHal
       _ -> do
         mapM_ putStrLn errs
         die "Pass in a file name for the brain."
 
-runHal :: Brain -> StdGen -> IO ()
-runHal brain gen = do
+runHal :: Brain -> IO ()
+runHal brain = do
   T.putStrLn "Enter text: "
   phrase <- getWords <$> T.getLine
-  let (reply, newGen) = runState (customCraft (100, 12800) brain phrase) gen
-  T.putStrLn $ sReply reply
-  print $ sScore reply
-  runHal brain newGen
+  reply <- generateReplies brain phrase
+  T.putStrLn reply
+  runHal brain
