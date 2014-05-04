@@ -115,9 +115,8 @@ makeKeywords lst = removeDuplicates $ firstBatch ++ secondBatch
 
 addAllWords :: Dictionary -> [Text] -> Dictionary
 addAllWords d [] = d
-addAllWords d (w:ws) =
-  let (_, nd) = addWord w d
-  in addAllWords nd ws
+addAllWords d (w:ws) = addAllWords nd ws
+  where (_, nd) = addWord w d
 
 learnPhrase :: Brain -> [Text] -> Brain
 learnPhrase (Brain ft bt c o d) p =

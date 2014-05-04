@@ -87,7 +87,7 @@ updateContext ctx _ symbol = V.unstream . VS.cons (V.head ctx) . VS.init $ mappe
   where
     ctxStream = V.stream ctx
     mappedStream = VS.map symbolFind ctxStream
-    symbolFind = flip findSymbol $ symbol
+    symbolFind = flip findSymbol symbol
 
 -- | Create a context suitable for navigating backwards based on the symbols
 -- used in the current reply using a starting tree.
@@ -111,7 +111,7 @@ insertTree newTree existingTree
   | otherwise            = updateTree $ V.concat [front, middle, rest]
   where children = treeChildren existingTree
         childLength = V.length children
-        lowerNode n = (treeSymbol n < treeSymbol newTree)
+        lowerNode n = treeSymbol n < treeSymbol newTree
         (front, rest) = V.partition lowerNode children
         middle = V.fromList [newTree]
         updateTree c = existingTree { treeChildren=c }
