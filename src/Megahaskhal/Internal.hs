@@ -4,15 +4,17 @@ module Megahaskhal.Internal
        , isAuxWord
        , makeKeywords
        , Brain(..)
+       , learnPhrase
        ) where
 
 import           Data.Char              (isAlphaNum)
 import qualified Data.Map.Strict        as M
+import           Data.Maybe             (fromJust)
 import qualified Data.Set               as S
 import           Data.Text              (Text)
 import qualified Data.Text              as T
-import           Megahaskhal.Dictionary (Dictionary)
-import           Megahaskhal.Tree       (Tree)
+import           Megahaskhal.Dictionary (Dictionary, addWord, lookupIndex)
+import           Megahaskhal.Tree       (Tree (..), addSymbols)
 
 auxWords :: S.Set Text
 auxWords =
@@ -110,3 +112,18 @@ makeKeywords lst = removeDuplicates $ firstBatch ++ secondBatch
     swapped = map swapIfPossible desiredWords
     firstBatch = filter (not . isBanAuxword) swapped
     secondBatch = filter isAuxWord swapped
+
+addAllWords :: Dictionary -> [Text] -> Dictionary
+addAllWords d [] = d
+addAllWords d (w:ws) =
+  let (_, nd) = addWord w d
+  in addAllWords nd ws
+
+learnPhrase :: Brain -> [Text] -> Brain
+learnPhrase (Brain ft bt c o d) p =
+  Brain (addSymbols ft symbols)
+        (addSymbols bt $ reverse symbols)
+        c o newDict
+  where
+    newDict = addAllWords d p
+    symbols = map (fromJust . flip lookupIndex newDict) p

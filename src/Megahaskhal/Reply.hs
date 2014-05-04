@@ -41,6 +41,7 @@ module Megahaskhal.Reply (
   -- * Utilities
   -- $utilities
   , getWords
+  , tokenizeWords
   , capitalizeSentence
 
   ) where
@@ -330,7 +331,10 @@ replace the last word with "." unless it already ends with one of
 
 -}
 getWords :: Text -> [Text]
-getWords = I.makeKeywords . fixup . T.groupBy sameClass . T.toUpper
+getWords = I.makeKeywords . tokenizeWords
+
+tokenizeWords :: Text -> [Text]
+tokenizeWords = fixup . T.groupBy sameClass . T.toUpper
   where
     firstAlpha = isAlpha . T.head
     -- find boundaries

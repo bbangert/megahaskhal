@@ -29,19 +29,22 @@ module Megahaskhal.Tree (
     -- ** Modifying Trees
     , insertTree
     , findSymbolAdd
+    , addSymbol
+    , addSymbols
 
     -- ** Folding
     , foldl
 
     ) where
 
-import           Data.List                 (foldl')
-import           Data.Vector               (Vector, (!))
-import qualified Data.Vector               as IV
-import qualified Data.Vector.Fusion.Stream as VS
-import qualified Data.Vector.Generic       as V
-import           Data.Word                 (Word16, Word32)
-import           Prelude                   hiding (foldl, null)
+import           Data.List                   (foldl')
+import           Data.Vector                 (Vector, (!))
+import qualified Data.Vector                 as IV
+import qualified Data.Vector.Fusion.Stream   as VS
+import qualified Data.Vector.Generic         as V
+import qualified Data.Vector.Generic.Mutable as VM
+import           Data.Word                   (Word16, Word32)
+import           Prelude                     hiding (foldl, null)
 
 data Tree = Empty
           | Tree { treeSymbol   :: {-# UNPACK #-} !Word16
@@ -102,15 +105,16 @@ null Empty = True
 null _ = False
 
 -- | Insert a tree into the children of an existing tree at the index provided
-insertTree :: Tree -> Int -> Tree -> Tree
-insertTree newTree index existingTree
-  | childLength == 0     = existingTree { treeChildren = V.fromList [newTree] }
-  | index >= childLength = existingTree { treeChildren = V.snoc children newTree }
-  | otherwise            = existingTree { treeChildren = front V.++ middle V.++ rest }
+insertTree :: Tree -> Tree -> Tree
+insertTree newTree existingTree
+  | childLength == 0     = updateTree $ V.fromList [newTree]
+  | otherwise            = updateTree $ V.concat [front, middle, rest]
   where children = treeChildren existingTree
         childLength = V.length children
-        (front, rest) = V.splitAt index children
+        lowerNode n = (treeSymbol n < treeSymbol newTree)
+        (front, rest) = V.partition lowerNode children
         middle = V.fromList [newTree]
+        updateTree c = existingTree { treeChildren=c }
 
 -- | Given a tree and a symbol to locate, perform a binary search on the
 -- children of the tree to retrieve a match if possible. Returns an Empty
@@ -119,27 +123,63 @@ findSymbol :: Tree -> Int -> Tree
 findSymbol Empty _ = Empty
 findSymbol t symbol =
   case binsearch children symbol 0 (V.length children - 1) of
-    Left _ -> Empty
-    Right x -> children ! x
+    Nothing -> Empty
+    Just x -> children ! x
   where children = treeChildren t
 
 -- | Find a symbol in the tree's children if it exists and return it, otherwise
 -- create it in the appropriate child node and return it.
-findSymbolAdd :: Tree -> Int -> Tree
+findSymbolAdd :: Tree -> Int -> (Int, Tree)
 findSymbolAdd t symbol =
   case binsearch children symbol 0 (childLength - 1) of
-    Left z -> newTree z
-    Right x -> children ! x
+    Nothing ->
+        let nt = newTree
+            (loc, _) = findSymbolAdd nt symbol
+        in (loc, nt)
+    Just x -> (x, t)
   where children = treeChildren t
         childLength = V.length children
         newSymbolTree = Tree (fromIntegral symbol) 0 0 V.empty
-        newTree i = insertTree newSymbolTree i t
+        newTree = insertTree newSymbolTree t
 
-binsearch :: IV.Vector Tree -> Int -> Int -> Int -> Either Int Int -- list, value, low, high, return int
+-- | Replaces a child node in a tree at the given index with a new tree node
+-- and returns the updated tree
+replaceTree :: Tree -> Int -> Tree -> Tree
+replaceTree oldTree index node =
+  oldTree { treeChildren = newChildren }
+  where newChildren = V.modify (\v -> VM.write v index node) $ treeChildren oldTree
+
+-- | Add a symbol's usage to a tree and return the updated tree.
+addSymbol :: Tree -> Int -> Tree
+addSymbol t symbol =
+    (replaceTree tree index newNode) { treeUsage = curTreeUsage+1}
+    where (index, tree) = findSymbolAdd t symbol
+          children      = treeChildren tree
+          node          = children ! index
+          curNodeCount  = treeCount node
+          curTreeUsage  = treeUsage tree
+          newNode       = node { treeCount = curNodeCount+1 }
+
+-- | Add a list of symbols to the tree navigating down and return it
+addSymbols :: Tree -> [Int] -> Tree
+addSymbols t [] = t
+addSymbols t (w:ws) = replaceTree t i newSymbolTree
+  where
+    -- A new tree with the symbol added and counts incremented
+    nt = addSymbol t w
+    -- Grab the index of the symbol added/updated
+    (i, _) = findSymbolAdd nt w
+    children = treeChildren nt
+    -- Get the tree node itself
+    node = children ! i
+    -- Update the tree node with the remaining symbols
+    newSymbolTree = addSymbols node ws
+
+binsearch :: IV.Vector Tree -> Int -> Int -> Int -> Maybe Int -- list, value, low, high, return int
 binsearch xs value low high
-   | high < low       = Left mid
+   | high < low       = Nothing
    | pivot > value  = binsearch xs value low (mid-1)
    | pivot < value  = binsearch xs value (mid+1) high
-   | otherwise        = Right mid
+   | otherwise        = Just mid
    where mid = low + ((high - low) `div` 2)
          pivot = getSymbol $ xs ! mid

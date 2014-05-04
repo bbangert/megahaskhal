@@ -1,10 +1,12 @@
 module Megahaskhal.Dictionary (
   Dictionary,
+  addWord,
   findWord,
   lookupIndex,
   replicateM,
   length ) where
 
+import Data.Sequence ((|>))
 import qualified Data.Sequence as S
 import           Data.Text     (Text)
 import           Prelude       hiding (length)
@@ -16,6 +18,13 @@ findWord = S.index
 
 lookupIndex :: Text -> Dictionary -> Maybe Int
 lookupIndex = S.elemIndexL
+
+addWord :: Text -> Dictionary -> (Int, Dictionary)
+addWord s dict =
+  case existingWord of
+    Nothing -> (S.length dict, dict |> s)
+    Just x -> (x, dict)
+  where existingWord = S.findIndexL (==s) dict
 
 replicateM :: Monad m => Int -> m Text -> m Dictionary
 replicateM = S.replicateM
