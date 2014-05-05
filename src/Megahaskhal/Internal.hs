@@ -107,7 +107,10 @@ isBanAuxword w = isBanWord w || isAuxWord w
 -- aux words if keywords were found in the firstBatch which doesn't
 -- allow for aux/banwords
 makeKeywords :: [Text] -> [Text]
-makeKeywords lst = removeDuplicates $ firstBatch ++ secondBatch
+makeKeywords lst =
+  if (not . null) firstBatch
+    then removeDuplicates (firstBatch ++ secondBatch)
+    else firstBatch
   where
     desiredWords = filter (not . undesiredWord) lst
     swapped = map swapIfPossible desiredWords
