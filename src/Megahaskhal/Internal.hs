@@ -7,6 +7,7 @@ module Megahaskhal.Internal
        , learnPhrase
        ) where
 
+import Control.DeepSeq (NFData, rnf)
 import           Data.Char              (isAlphaNum)
 import qualified Data.Map.Strict        as M
 import           Data.Maybe             (fromJust)

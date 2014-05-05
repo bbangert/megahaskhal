@@ -1,6 +1,7 @@
 {-| Tree and Context manipulation
 
 -}
+{-# LANGUAGE BangPatterns #-}
 
 module Megahaskhal.Tree (
     -- * Context
@@ -37,9 +38,11 @@ module Megahaskhal.Tree (
 
     ) where
 
+import           Control.DeepSeq             (NFData, rnf)
 import           Data.List                   (foldl')
 import           Data.Vector                 (Vector, (!))
 import qualified Data.Vector                 as IV
+import qualified Data.Vector.Mutable         as DV
 import qualified Data.Vector.Fusion.Stream   as VS
 import qualified Data.Vector.Generic         as V
 import qualified Data.Vector.Generic.Mutable as VM
@@ -134,8 +137,8 @@ findSymbolAdd t symbol =
   case binsearch children symbol 0 (childLength - 1) of
     Nothing ->
         let nt = newTree
-            (loc, _) = findSymbolAdd nt symbol
-        in (loc, nt)
+            (loc, ft) = findSymbolAdd nt symbol
+        in (loc, ft)
     Just x -> (x, t)
   where children = treeChildren t
         childLength = V.length children
@@ -150,9 +153,9 @@ replaceTree oldTree index node =
   where newChildren = V.modify (\v -> VM.write v index node) $ treeChildren oldTree
 
 -- | Add a symbol's usage to a tree and return the updated tree.
-addSymbol :: Tree -> Int -> Tree
+addSymbol :: Tree -> Int -> (Int, Tree)
 addSymbol t symbol =
-    (replaceTree tree index newNode) { treeUsage = curTreeUsage+1}
+    (index, (replaceTree tree index newNode) { treeUsage = curTreeUsage+1})
     where (index, tree) = findSymbolAdd t symbol
           children      = treeChildren tree
           node          = children ! index
@@ -163,15 +166,13 @@ addSymbol t symbol =
 -- | Add a list of symbols to the tree navigating down and return it
 addSymbols :: Tree -> [Int] -> Tree
 addSymbols t [] = t
-addSymbols t (w:ws) = replaceTree t i newSymbolTree
+addSymbols t (w:ws) = replaceTree nt index newSymbolTree
   where
     -- A new tree with the symbol added and counts incremented
-    nt = addSymbol t w
-    -- Grab the index of the symbol added/updated
-    (i, _) = findSymbolAdd nt w
+    (index, nt) = addSymbol t w
     children = treeChildren nt
     -- Get the tree node itself
-    node = children ! i
+    node = children ! index
     -- Update the tree node with the remaining symbols
     newSymbolTree = addSymbols node ws
 
