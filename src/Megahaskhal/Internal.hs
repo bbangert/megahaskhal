@@ -124,9 +124,13 @@ addAllWords d (w:ws) = addAllWords nd ws
 
 learnPhrase :: Brain -> [Text] -> Brain
 learnPhrase (Brain ft bt c o d) p =
-  Brain (addSymbols ft symbols)
-        (addSymbols bt $ reverse symbols)
+  Brain (segments ft symbols)
+        (segments bt $ reverse symbols)
         c o newDict
   where
     newDict = addAllWords d p
     symbols = map (fromJust . flip lookupIndex newDict) p
+    segments t [] = t
+    segments t syms@(s:sx) = segments newTree sx
+      where useSymbols = take o syms
+            newTree = addSymbols t useSymbols

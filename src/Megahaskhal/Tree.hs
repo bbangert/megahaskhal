@@ -39,13 +39,14 @@ module Megahaskhal.Tree (
     ) where
 
 import           Control.DeepSeq             (NFData, rnf)
+import           Control.Monad.ST            (runST)
 import           Data.List                   (foldl')
 import           Data.Vector                 (Vector, (!))
 import qualified Data.Vector                 as IV
-import qualified Data.Vector.Mutable         as DV
 import qualified Data.Vector.Fusion.Stream   as VS
 import qualified Data.Vector.Generic         as V
 import qualified Data.Vector.Generic.Mutable as VM
+import qualified Data.Vector.Mutable         as DV
 import           Data.Word                   (Word16, Word32)
 import           Prelude                     hiding (foldl, null)
 
@@ -148,9 +149,11 @@ findSymbolAdd t symbol =
 -- | Replaces a child node in a tree at the given index with a new tree node
 -- and returns the updated tree
 replaceTree :: Tree -> Int -> Tree -> Tree
-replaceTree oldTree index node =
-  oldTree { treeChildren = newChildren }
-  where newChildren = V.modify (\v -> VM.write v index node) $ treeChildren oldTree
+replaceTree oldTree index node = runST $ do
+  mV <- V.thaw $ treeChildren oldTree
+  VM.write mV index node
+  newChildren <- V.freeze mV
+  return $ oldTree { treeChildren = newChildren }
 
 -- | Add a symbol's usage to a tree and return the updated tree.
 addSymbol :: Tree -> Int -> (Int, Tree)
