@@ -38,7 +38,6 @@ module Megahaskhal.Tree (
 
     ) where
 
-import           Control.DeepSeq             (NFData, rnf)
 import           Control.Monad.ST            (runST)
 import           Data.List                   (foldl')
 import           Data.Vector                 (Vector, (!))
@@ -46,7 +45,6 @@ import qualified Data.Vector                 as IV
 import qualified Data.Vector.Fusion.Stream   as VS
 import qualified Data.Vector.Generic         as V
 import qualified Data.Vector.Generic.Mutable as VM
-import qualified Data.Vector.Mutable         as DV
 import           Data.Word                   (Word16, Word32)
 import           Prelude                     hiding (foldl, null)
 

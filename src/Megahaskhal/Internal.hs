@@ -7,7 +7,6 @@ module Megahaskhal.Internal
        , learnPhrase
        ) where
 
-import Control.DeepSeq (NFData, rnf)
 import           Data.Char              (isAlphaNum)
 import qualified Data.Map.Strict        as M
 import           Data.Maybe             (fromJust)
@@ -117,11 +116,14 @@ makeKeywords lst =
     firstBatch = filter (not . isBanAuxword) swapped
     secondBatch = filter isAuxWord swapped
 
+-- |Add all words to a dictionary if they weren't already in it, and return
+-- the new dictionary
 addAllWords :: Dictionary -> [Text] -> Dictionary
 addAllWords d [] = d
 addAllWords d (w:ws) = addAllWords nd ws
   where (_, nd) = addWord w d
 
+-- |Learn a set of tokenized words
 learnPhrase :: Brain -> [Text] -> Brain
 learnPhrase (Brain ft bt c o d) p =
   Brain (segments ft symbols)
@@ -131,6 +133,6 @@ learnPhrase (Brain ft bt c o d) p =
     newDict = addAllWords d p
     symbols = map (fromJust . flip lookupIndex newDict) p
     segments t [] = t
-    segments t syms@(s:sx) = segments newTree sx
+    segments t syms@(_:sx) = segments newTree sx
       where useSymbols = take o syms
             newTree = addSymbols t useSymbols
