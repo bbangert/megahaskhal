@@ -15,6 +15,7 @@ module Megahaskhal.Tree (
     -- * Tree
     -- $tree
     , Tree (..)
+    , emptyChildren
 
     -- ** Accessors
     , null
@@ -64,6 +65,9 @@ foldl f acc x = IV.foldl (foldl f) acc' $ treeChildren x
 
 mkTree :: Word16 -> Word32 -> Word16 -> Vector Tree -> Tree
 mkTree = Tree
+
+emptyChildren :: Vector Tree
+emptyChildren = V.empty
 
 getSymbol, getUsage, getCount :: Tree -> Int
 getSymbol = fromIntegral . treeSymbol

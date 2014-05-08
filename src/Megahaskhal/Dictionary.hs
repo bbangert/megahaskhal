@@ -4,14 +4,20 @@ module Megahaskhal.Dictionary (
   findWord,
   lookupIndex,
   replicateM,
+  forM_,
+  emptyDictionary,
   length ) where
 
-import Data.Sequence ((|>))
+import           Data.Foldable (forM_)
+import           Data.Sequence ((|>))
 import qualified Data.Sequence as S
 import           Data.Text     (Text)
 import           Prelude       hiding (length)
 
 type Dictionary = S.Seq Text
+
+emptyDictionary :: Dictionary
+emptyDictionary = S.empty
 
 findWord :: Dictionary -> Int -> Text
 findWord = S.index

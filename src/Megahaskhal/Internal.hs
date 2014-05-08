@@ -5,6 +5,7 @@ module Megahaskhal.Internal
        , makeKeywords
        , Brain(..)
        , learnPhrase
+       , emptyBrain
        ) where
 
 import           Data.Char              (isAlphaNum)
@@ -13,8 +14,8 @@ import           Data.Maybe             (fromJust)
 import qualified Data.Set               as S
 import           Data.Text              (Text)
 import qualified Data.Text              as T
-import           Megahaskhal.Dictionary (Dictionary, addWord, lookupIndex)
-import           Megahaskhal.Tree       (Tree (..), addSymbols)
+import           Megahaskhal.Dictionary (Dictionary, addWord, lookupIndex, emptyDictionary)
+import           Megahaskhal.Tree       (Tree (..), addSymbols, emptyChildren)
 
 auxWords :: S.Set Text
 auxWords =
@@ -77,6 +78,10 @@ data Brain = Brain {
     , getOrder      :: Int
     , getDictionary :: Dictionary
     } deriving (Show)
+
+emptyBrain :: Brain
+emptyBrain = Brain (Tree 0 0 0 emptyChildren) (Tree 0 0 0 emptyChildren)
+                   "MegaHALv8" 5 emptyDictionary
 
 isAuxWord :: Text -> Bool
 isAuxWord = (`S.member` auxWords)
