@@ -14,7 +14,8 @@ import           Data.Maybe             (fromJust)
 import qualified Data.Set               as S
 import           Data.Text              (Text)
 import qualified Data.Text              as T
-import           Megahaskhal.Dictionary (Dictionary, addWord, lookupIndex, emptyDictionary)
+import           Megahaskhal.Dictionary (Dictionary, addWord, emptyDictionary,
+                                         lookupIndex)
 import           Megahaskhal.Tree       (Tree (..), addSymbols, emptyChildren)
 
 auxWords :: S.Set Text

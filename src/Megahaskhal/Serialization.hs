@@ -15,7 +15,7 @@ module Megahaskhal.Serialization (
 import           Control.Applicative      ((<$>), (<*>))
 import qualified Data.Binary.Get          as G
 import qualified Data.Binary.Put          as P
-import qualified Data.ByteString as B
+import qualified Data.ByteString          as B
 import qualified Data.ByteString.Lazy     as BL
 import qualified Data.Text                as T
 import qualified Data.Text.Encoding       as T
@@ -74,7 +74,7 @@ saveBrainWithFilename brain fileName = withBinaryFile fileName WriteMode saveFil
   where saveFile handle = BL.hPut handle $ P.runPut $ saveBrain brain
 
 saveBrain :: Brain -> P.Put
-saveBrain (Brain ft bt cookie order dict) = do
+saveBrain (Brain ft bt _ order dict) = do
   P.putByteString "MegaHALv8"
   P.putWord8 $ fromIntegral order
   putTree ft
