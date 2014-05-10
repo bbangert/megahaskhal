@@ -4,8 +4,6 @@ module Megahaskhal.Internal
        , isAuxWord
        , makeKeywords
        , Brain(..)
-       , addAllWords
-       , addSymbols
        , emptyBrain
        ) where
 
@@ -15,8 +13,8 @@ import qualified Data.Map.Strict        as M
 import qualified Data.Set               as S
 import           Data.Text              (Text)
 import qualified Data.Text              as T
-import           Megahaskhal.Dictionary (Dictionary, addWord, emptyDictionary)
-import           Megahaskhal.Tree       (Tree (..), addSymbols, emptyChildren)
+import           Megahaskhal.Dictionary (Dictionary, emptyDictionary)
+import           Megahaskhal.Tree       (Tree (..), emptyChildren)
 
 auxWords :: S.Set Text
 auxWords =
@@ -125,10 +123,3 @@ makeKeywords lst =
     swapped = map swapIfPossible desiredWords
     firstBatch = filter (not . isBanAuxword) swapped
     secondBatch = filter isAuxWord swapped
-
--- |Add all words to a dictionary if they weren't already in it, and return
--- the new dictionary
-addAllWords :: Dictionary -> [Text] -> Dictionary
-addAllWords d [] = d
-addAllWords d (w:ws) = addAllWords nd ws
-  where (_, nd) = addWord w d

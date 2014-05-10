@@ -15,9 +15,10 @@ import           Data.Text              (Text)
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as TI
 
-import           Megahaskhal.Dictionary (lookupIndex)
-import           Megahaskhal.Internal   (Brain (Brain), addAllWords, addSymbols)
+import           Megahaskhal.Dictionary (addAllWords, lookupIndex)
+import           Megahaskhal.Internal   (Brain (Brain))
 import           Megahaskhal.Reply      (tokenizeWords)
+import           Megahaskhal.Tree       (addSymbols)
 
 -- |Learn sentences from a plain-text file
 learnFile :: Brain -> String -> IO Brain
