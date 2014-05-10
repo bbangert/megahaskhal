@@ -19,6 +19,22 @@ flag developer
   description: operate in developer mode
   default: False
 
+executable updatebrain
+  default-language: Haskell2010
+  main-is:    cli/Main.hs
+  Build-depends:
+    base >=4.6 && <4.7,
+    binary >= 0.7.1.0 && <0.8,
+    containers >= 0.5.0.0,
+    bytestring >= 0.10.0.2,
+    random >= 1.0.1.1,
+    mtl >= 2.1.2,
+    vector >= 0.10.0.1,
+    text >= 1.1.0,
+    megahaskhal >= 0.1.0.0,
+    data-ordlist >= 0.2
+  ghc-options: -O2 -Wall -threaded -rtsopts -prof -funfolding-use-threshold=16 -optc-O3
+
 executable megahaskhal
   default-language: Haskell2010
   main-is:    Main.hs
@@ -63,6 +79,7 @@ Library
     Megahaskhal.Tree
     Megahaskhal.Dictionary
     Megahaskhal.Reply
+    Megahaskhal.Learning
 
   -- other-modules:
   -- other-extensions:

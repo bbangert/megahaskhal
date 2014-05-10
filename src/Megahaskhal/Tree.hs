@@ -16,6 +16,7 @@ module Megahaskhal.Tree (
     -- $tree
     , Tree (..)
     , emptyChildren
+    , prettyView
 
     -- ** Accessors
     , null
@@ -39,6 +40,7 @@ module Megahaskhal.Tree (
 
     ) where
 
+import           Control.DeepSeq             (NFData, rnf)
 import           Control.Monad.ST            (runST)
 import           Data.List                   (foldl')
 import           Data.Vector                 (Vector, (!))
@@ -49,6 +51,8 @@ import qualified Data.Vector.Generic.Mutable as VM
 import           Data.Word                   (Word16, Word32)
 import           Prelude                     hiding (foldl, null)
 
+import           Megahaskhal.Dictionary      (Dictionary, findWord)
+
 data Tree = Empty
           | Tree { treeSymbol   :: {-# UNPACK #-} !Word16
                  , treeUsage    :: {-# UNPACK #-} !Word32
@@ -57,6 +61,25 @@ data Tree = Empty
                  } deriving (Eq, Show)
 
 type Context = Vector Tree
+
+instance NFData Tree where
+  rnf Empty = seq Empty ()
+  rnf (Tree s u c children) = rnf s `seq` rnf u `seq` rnf c `seq`
+                              rnf children `seq` ()
+
+prettyView :: Tree -> Dictionary -> String
+prettyView t dict = view t 0
+  where
+    view Empty _ = "Tree EMPTY"
+    view (Tree s u c children) n =
+      unwords ["Tree Usage: ", show u, ", Count:", show c,
+               "Word: ", show $ findWord dict (fromIntegral s), childView]
+      where
+        indent = take (n*3+1) $ repeat ' '
+        mapKids child = unwords ["\n", indent, " -> ", view child (n+1)]
+        childView
+          | V.length children == 0 = ""
+          | otherwise = unwords . map mapKids $ V.toList children
 
 foldl :: (a -> Tree -> a) -> a -> Tree -> a
 foldl _ acc Empty = acc
@@ -80,7 +103,7 @@ getChildren = treeChildren
 -- | Create a new context initialized with a tree for the given order
 -- size. Empty tree's will fill in order slots.
 newContext :: Tree -> Int -> Context
-newContext t n = IV.fromList $ t : replicate (n-1) Empty
+newContext t n = IV.fromList $ t : replicate n Empty
 
 -- | Updates the context by creating a new context where every position in the
 -- context is whether the symbol was found in that tree. This operation always

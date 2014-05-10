@@ -119,19 +119,59 @@ collectTopReplies tr = do
         Just r  -> collectTopReplies (addReply r tr)
 
 -- | Generate a suitable amount of replies and return the highest scored
+-- generateReply :: Brain -> [Text] -> IO Text
+-- generateReply brain phrase = do
+--     times <- getStdRandom (randomR (800,1500))
+--     replies <- evalStateT parser $
+--         producer >-> PL.take times
+--                  >-> PL.print
+--                  >-> dropOutsideBounds 5 5000
+--     let cc = length $ allReplies replies
+--     index <- getStdRandom (randomR (0, max 0 (cc-1)))
+--     let repl = allReplies replies !! index
+--     return $ capitalizeSentence . sReply $ repl
+--     -- return $ repl { sReply=(capitalizeSentence . sReply) repl }
+--     where producer = replyProducer brain phrase
+--           parser   = collectTopReplies $ empty 20
+
+-- | Craft a custom reply that meets these requirements
+customCraft :: (Int, Int)
+            -> Brain -> [Text]
+            -> State StdGen ScoredReply
+customCraft (minLength, maxLength) brain phrase = do
+  let bst = empty 30
+      al = empty 30
+  times <- state $ randomR (200, 2500)
+  replies <- go times bst al
+  if curCapacity replies < 1
+    then customCraft (minLength, maxLength) brain phrase
+    else do
+      ind <- rndIndex $ curCapacity replies - 1
+      let ind' = if ind < 0 then 0 else ind
+      let repl = allReplies replies !! ind'
+      return $ repl { sReply = capitalizeSentence $ sReply repl }
+  where
+    go :: Int -> TopReplies -> TopReplies -> State StdGen TopReplies
+    -- no more iterations, return best matches if avail, otherwise all
+    go 0 bst al
+        | curCapacity bst > 0 = return bst
+        | otherwise             = return al
+    -- more iterations to do, add this to a best match if it meets the
+    -- criteria, otherwise all responses, and iterate again
+    go remaining bst al = do
+        rep <- reply brain phrase
+        let repLen = T.length $ sReply rep
+            newRem = remaining - 1
+        if repLen >= minLength && repLen < maxLength
+            then go newRem (addReply rep bst) al
+            else go newRem bst (addReply rep al)
+
 generateReply :: Brain -> [Text] -> IO Text
 generateReply brain phrase = do
-    times <- getStdRandom (randomR (800,1500))
-    replies <- evalStateT parser $
-        producer >-> dropOutsideBounds 25 5000
-                 >-> PL.take times
-    let cc = length $ allReplies replies
-    index <- getStdRandom (randomR (0, max 0 (cc-1)))
-    let repl = allReplies replies !! index
-    return $ capitalizeSentence . sReply $ repl
-    -- return $ repl { sReply=(capitalizeSentence . sReply) repl }
-    where producer = replyProducer brain phrase
-          parser   = collectTopReplies $ empty 20
+  gen <- getStdGen
+  let (response, newGen) = runState (customCraft (5, 50000) brain phrase) gen
+  setStdGen newGen
+  return $ sReply response
 
 {- $replies
     Reply creation basic components.

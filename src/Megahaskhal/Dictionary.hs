@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Megahaskhal.Dictionary (
   Dictionary,
   addWord,
@@ -17,7 +19,7 @@ import           Prelude       hiding (length)
 type Dictionary = S.Seq Text
 
 emptyDictionary :: Dictionary
-emptyDictionary = S.empty
+emptyDictionary = S.fromList ["<ERROR>", "<FIN>"]
 
 findWord :: Dictionary -> Int -> Text
 findWord = S.index

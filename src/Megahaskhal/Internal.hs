@@ -4,18 +4,18 @@ module Megahaskhal.Internal
        , isAuxWord
        , makeKeywords
        , Brain(..)
-       , learnPhrase
+       , addAllWords
+       , addSymbols
        , emptyBrain
        ) where
 
+import           Control.DeepSeq        (NFData, rnf)
 import           Data.Char              (isAlphaNum)
 import qualified Data.Map.Strict        as M
-import           Data.Maybe             (fromJust)
 import qualified Data.Set               as S
 import           Data.Text              (Text)
 import qualified Data.Text              as T
-import           Megahaskhal.Dictionary (Dictionary, addWord, emptyDictionary,
-                                         lookupIndex)
+import           Megahaskhal.Dictionary (Dictionary, addWord, emptyDictionary)
 import           Megahaskhal.Tree       (Tree (..), addSymbols, emptyChildren)
 
 auxWords :: S.Set Text
@@ -80,6 +80,10 @@ data Brain = Brain {
     , getDictionary :: Dictionary
     } deriving (Show)
 
+instance NFData Brain where
+  rnf (Brain ft bt c o d) = rnf ft `seq` rnf bt `seq`
+                            rnf c `seq` rnf o `seq` rnf d `seq` ()
+
 emptyBrain :: Brain
 emptyBrain = Brain (Tree 0 0 0 emptyChildren) (Tree 0 0 0 emptyChildren)
                    "MegaHALv8" 5 emptyDictionary
@@ -128,17 +132,3 @@ addAllWords :: Dictionary -> [Text] -> Dictionary
 addAllWords d [] = d
 addAllWords d (w:ws) = addAllWords nd ws
   where (_, nd) = addWord w d
-
--- |Learn a set of tokenized words
-learnPhrase :: Brain -> [Text] -> Brain
-learnPhrase (Brain ft bt c o d) p =
-  Brain (segments ft symbols)
-        (segments bt $ reverse symbols)
-        c o newDict
-  where
-    newDict = addAllWords d p
-    symbols = map (fromJust . flip lookupIndex newDict) p
-    segments t [] = t
-    segments t syms@(_:sx) = segments newTree sx
-      where useSymbols = take o syms
-            newTree = addSymbols t useSymbols
