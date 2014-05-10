@@ -8,6 +8,8 @@ module Megahaskhal.Learning (
 
 import           Control.Applicative    ((<$>))
 import           Control.DeepSeq        (force)
+import           Data.Foldable          (foldl')
+import           Data.List              (tails)
 import           Data.Maybe             (fromJust)
 import           Data.Text              (Text)
 import qualified Data.Text              as T
@@ -21,29 +23,23 @@ import           Megahaskhal.Reply      (tokenizeWords)
 learnFile :: Brain -> String -> IO Brain
 learnFile brain fileName = do
   s <- T.lines <$> TI.readFile fileName
-  return $! go brain s
-  where go b []     = b
-        go b (l:ls) =
-          if T.null nl || isComment
-            then go b ls
-            else go nb ls
+  return $! foldl' go brain s
+  where go b l = if T.null nl || isComment then b
+                  else learnPhrase b $ tokenizeWords nl
           where nl        = T.strip l
                 isComment = T.head nl == '#'
-                nb        = learnPhrase b $ tokenizeWords nl
 
 -- |Learn a set of tokenized words
 learnPhrase :: Brain -> [Text] -> Brain
 learnPhrase (Brain ft bt c o d) p =
-  Brain (segments ft symbols)
-        (segments bt $ reverse symbols)
+  Brain (foldl' segments ft $ ngrams symbols)
+        (foldl' segments bt $ ngrams $ reverse symbols)
         c o newDict
   where
     newDict = addAllWords d p
     symbols = map (fromJust . flip lookupIndex newDict) p
-    segments t [] = t
-    segments t syms@(_:sx) = segments newTree sx
-      where remainingSymbols = take (o+1) syms
-            useSymbols
-              | length remainingSymbols <= o = remainingSymbols ++ [1]
-              | otherwise = remainingSymbols
-            newTree = addSymbols t useSymbols
+    ngrams s = map (take (o+1)) . tails $ s
+    segments t syms = addSymbols t useSymbols
+      where useSymbols
+              | length syms <= o = syms ++ [1]
+              | otherwise = syms
