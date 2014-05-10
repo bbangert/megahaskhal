@@ -177,7 +177,7 @@ replaceTree :: Tree -> Int -> Tree -> Tree
 replaceTree oldTree index node = runST $ do
   mV <- V.thaw $ treeChildren oldTree
   VM.write mV index node
-  newChildren <- V.freeze mV
+  newChildren <- V.unsafeFreeze mV
   return $ oldTree { treeChildren = newChildren }
 
 -- | Add a symbol's usage to a tree and return the updated tree.
