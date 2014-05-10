@@ -42,29 +42,26 @@ module Megahaskhal.Reply (
 
   ) where
 
-import           Control.Applicative        ((<$>))
-import           Control.Monad.State        (MonadState, State, runState, state)
-import           Data.Char                  (isAlpha, isAlphaNum, isDigit,
-                                             toUpper)
-import           Data.List                  (foldl', mapAccumL)
-import qualified Data.List.Ordered          as O
-import           Data.Maybe                 (mapMaybe)
-import           Data.Text                  (Text)
-import qualified Data.Text                  as T
-import qualified Data.Vector                as V
-import           Pipes.Parse                (Parser, draw)
-import           System.Random              (Random, StdGen, getStdGen,
-                                             getStdRandom, randomR, setStdGen)
+import           Control.Applicative    ((<$>))
+import           Control.Monad.State    (MonadState, State, runState, state)
+import           Data.Char              (isAlpha, isAlphaNum, isDigit, toUpper)
+import           Data.List              (foldl', mapAccumL)
+import qualified Data.List.Ordered      as O
+import           Data.Maybe             (mapMaybe)
+import           Data.Text              (Text)
+import qualified Data.Text              as T
+import qualified Data.Vector            as V
+import           System.Random          (Random, StdGen, getStdGen, randomR,
+                                         setStdGen)
 
-
-import           Megahaskhal.Dictionary     (Dictionary, findWord, lookupIndex)
-import           Megahaskhal.Internal       (Brain (..))
-import qualified Megahaskhal.Internal       as I
-import           Megahaskhal.Tree           (Context, Tree, createBackContext,
-                                             findSymbol, getChildren, getCount,
-                                             getSymbol, getUsage, lastTree,
-                                             newContext, updateContext)
-import qualified Megahaskhal.Tree           as MT
+import           Megahaskhal.Dictionary (Dictionary, findWord, lookupIndex)
+import           Megahaskhal.Internal   (Brain (..))
+import qualified Megahaskhal.Internal   as I
+import           Megahaskhal.Tree       (Context, Tree, createBackContext,
+                                         findSymbol, getChildren, getCount,
+                                         getSymbol, getUsage, lastTree,
+                                         newContext, updateContext)
+import qualified Megahaskhal.Tree       as MT
 
 -- | Aliases for easy reading
 type Keywords = [Int]
@@ -112,7 +109,7 @@ customCraft (minLength, maxLength) brain phrase = do
 generateReply :: Brain -> [Text] -> IO Text
 generateReply brain phrase = do
   gen <- getStdGen
-  let (response, newGen) = runState (customCraft (5, 50000) brain phrase) gen
+  let (response, newGen) = runState (customCraft (50, 50000) brain phrase) gen
   setStdGen newGen
   return $ sReply response
 

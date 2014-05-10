@@ -7,7 +7,6 @@ module Megahaskhal.Learning (
   ) where
 
 import           Control.Applicative    ((<$>))
-import           Control.DeepSeq        (force)
 import           Data.Foldable          (foldl')
 import           Data.List              (tails)
 import           Data.Maybe             (fromJust)
