@@ -24,11 +24,7 @@ Example usage to generate a response provided a brain:
 {-# LANGUAGE RankNTypes            #-}
 
 module Megahaskhal.Reply (
-  -- * Pipe Components
-  -- $pipes
-    replyProducer
-  , collectTopReplies
-  , generateReply
+  generateReply
 
   -- * Replies
   -- $replies
@@ -48,7 +44,6 @@ module Megahaskhal.Reply (
 
 import           Control.Applicative        ((<$>))
 import           Control.Monad.State        (MonadState, State, runState, state)
-import           Control.Monad.State.Strict (evalStateT)
 import           Data.Char                  (isAlpha, isAlphaNum, isDigit,
                                              toUpper)
 import           Data.List                  (foldl', mapAccumL)
@@ -57,10 +52,7 @@ import           Data.Maybe                 (mapMaybe)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import qualified Data.Vector                as V
-import           Pipes                      (Pipe, Producer, await, lift, yield,
-                                             (>->))
 import           Pipes.Parse                (Parser, draw)
-import qualified Pipes.Prelude              as PL
 import           System.Random              (Random, StdGen, getStdGen,
                                              getStdRandom, randomR, setStdGen)
 
@@ -84,55 +76,6 @@ type Order = Int
 data EContext = EContext { eNum     :: {-# UNPACK #-} !Float
                          , eEntropy :: {-# UNPACK #-} !Float
                          , eContext :: !Context }
-
-
-{- $pipes
-    Pipe Components utilize the 'Pipes' package for easy composition
-    of generated replies to restrict the outcome to a desired set of
-    traits.
-
--}
-
--- | Produce an endless stream of replies to a given phrase
-replyProducer :: Brain -> [Text] -> Producer ScoredReply IO ()
-replyProducer brain phrase = do
-  gen <- lift getStdGen
-  let (response, newGen) = runState (reply brain phrase) gen
-  yield response
-  lift $ setStdGen newGen
-  replyProducer brain phrase
-
-dropOutsideBounds :: Int -> Int -> Pipe ScoredReply ScoredReply IO ()
-dropOutsideBounds l u = do
-  repl <- await
-  let repLen = T.length $ sReply repl
-  if l <= repLen && repLen <= u
-    then yield repl >> dropOutsideBounds l u
-    else dropOutsideBounds l u
-
--- | Collect top replies
-collectTopReplies :: TopReplies -> Parser ScoredReply IO TopReplies
-collectTopReplies tr = do
-    repl <- draw
-    case repl of
-        Nothing -> return tr
-        Just r  -> collectTopReplies (addReply r tr)
-
--- | Generate a suitable amount of replies and return the highest scored
--- generateReply :: Brain -> [Text] -> IO Text
--- generateReply brain phrase = do
---     times <- getStdRandom (randomR (800,1500))
---     replies <- evalStateT parser $
---         producer >-> PL.take times
---                  >-> PL.print
---                  >-> dropOutsideBounds 5 5000
---     let cc = length $ allReplies replies
---     index <- getStdRandom (randomR (0, max 0 (cc-1)))
---     let repl = allReplies replies !! index
---     return $ capitalizeSentence . sReply $ repl
---     -- return $ repl { sReply=(capitalizeSentence . sReply) repl }
---     where producer = replyProducer brain phrase
---           parser   = collectTopReplies $ empty 20
 
 -- | Craft a custom reply that meets these requirements
 customCraft :: (Int, Int)
