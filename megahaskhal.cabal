@@ -23,7 +23,23 @@ executable updatebrain
   default-language: Haskell2010
   main-is:    cli/Main.hs
   Build-depends:
-    base >=4.6 && <4.7,
+    base >=4.6 && <4.8,
+    binary >= 0.7.1.0 && <0.8,
+    containers >= 0.5.0.0,
+    bytestring >= 0.10.0.2,
+    random >= 1.0.1.1,
+    mtl >= 2.1.2,
+    vector >= 0.10.0.1,
+    text >= 1.1.0,
+    megahaskhal >= 0.1.0.0,
+    data-ordlist >= 0.2
+  ghc-options: -O2 -Wall -threaded -rtsopts -prof -funfolding-use-threshold=16 -optc-O3
+
+executable mh-web
+  default-language: Haskell2010
+  main-is:    web/Main.hs
+  Build-depends:
+    base >=4.6 && <4.8,
     binary >= 0.7.1.0 && <0.8,
     containers >= 0.5.0.0,
     bytestring >= 0.10.0.2,
@@ -39,7 +55,7 @@ executable megahaskhal
   default-language: Haskell2010
   main-is:    Main.hs
   Build-depends:
-    base >=4.6 && <4.7,
+    base >=4.6 && <4.8,
     binary >= 0.7.1.0 && <0.8,
     containers >= 0.5.0.0,
     bytestring >= 0.10.0.2,
@@ -55,7 +71,7 @@ executable megabot
   default-language: Haskell2010
   main-is:    bot/Main.hs
   Build-depends:
-    base >=4.6 && <4.7,
+    base >=4.6 && <4.8,
     binary >= 0.7.1.0 && <0.8,
     ConfigFile      >= 1.1,
     containers >= 0.5.0.0,
@@ -80,6 +96,7 @@ Library
     Megahaskhal.Dictionary
     Megahaskhal.Reply
     Megahaskhal.Learning
+    Megahaskhal.Words
 
   -- other-modules:
   -- other-extensions:
@@ -89,7 +106,7 @@ Library
   if flag(developer)
     ghc-prof-options: -auto-all
 
-  Build-depends:    base            >= 4.6      && <4.7
+  Build-depends:    base            >= 4.6      && <4.8
                   , binary          >= 0.7.1.0  && <0.8
                   , containers      >= 0.5.0.0
                   , bytestring      >= 0.10.0.2
