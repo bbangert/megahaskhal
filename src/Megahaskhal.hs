@@ -5,5 +5,5 @@ module Megahaskhal (
   ) where
 
 import           Megahaskhal.Internal      (Brain)
-import           Megahaskhal.Reply         (getWords)
+import           Megahaskhal.Words         (getWords)
 import           Megahaskhal.Serialization (loadBrainFromFilename)

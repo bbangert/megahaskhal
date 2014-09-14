@@ -16,8 +16,8 @@ import qualified Data.Text.IO           as TI
 
 import           Megahaskhal.Dictionary (addAllWords, lookupIndex)
 import           Megahaskhal.Internal   (Brain (Brain))
-import           Megahaskhal.Reply      (tokenizeWords)
 import           Megahaskhal.Tree       (addSymbols)
+import           Megahaskhal.Words      (tokenizeWords)
 
 -- |Learn sentences from a plain-text file
 learnFile :: Brain -> String -> IO Brain

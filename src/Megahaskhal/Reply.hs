@@ -34,18 +34,11 @@ module Megahaskhal.Reply (
   , addReply
   , reply
 
-  -- * Utilities
-  -- $utilities
-  , getWords
-  , tokenizeWords
-  , capitalizeSentence
-
   ) where
 
 import           Control.Applicative    ((<$>))
 import           Control.Monad.State    (MonadState, State, runState, state)
-import           Data.Char              (isAlpha, isAlphaNum, isDigit, toUpper)
-import           Data.List              (foldl', mapAccumL)
+import           Data.List              (foldl')
 import qualified Data.List.Ordered      as O
 import           Data.Maybe             (mapMaybe)
 import           Data.Text              (Text)
@@ -62,6 +55,7 @@ import           Megahaskhal.Tree       (Context, Tree, createBackContext,
                                          getSymbol, getUsage, lastTree,
                                          newContext, updateContext)
 import qualified Megahaskhal.Tree       as MT
+import           Megahaskhal.Words      (capitalizeSentence)
 
 -- | Aliases for easy reading
 type Keywords = [Int]
@@ -87,8 +81,8 @@ customCraft (minLength, maxLength) brain phrase = do
     then customCraft (minLength, maxLength) brain phrase
     else do
       ind <- rndIndex $ curCapacity replies - 1
-      let ind' = if ind < 0 then 0 else ind
-      let repl = allReplies replies !! ind'
+      let ind' = max 0 ind
+          repl = allReplies replies !! ind'
       return $ repl { sReply = capitalizeSentence $ sReply repl }
   where
     go :: Int -> TopReplies -> TopReplies -> State StdGen TopReplies
@@ -150,17 +144,18 @@ reply :: Brain                        -- ^ A brain to start with
       -> [Text]                       -- ^ Words to respond to
       -> State StdGen ScoredReply     -- ^ Reply words along with score
 reply brain@(Brain fTree bTree _ order dict) phrase = do
-    let lookupSymbol = flip lookupIndex dict
-        kws          = mapMaybe lookupSymbol phrase
-        ctx          = newContext fTree order
-    symbol <- seed ctx dict kws
-    (fWords, fSymbols, usedKey) <- processWords ctx dict order kws [] False symbol
-    let wordsToUse   = reverse $ take order fSymbols
-        backCtx      = createBackContext bTree order wordsToUse
-    (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
-    let lowered      = T.toLower . T.concat $ reverse bWords ++ fWords
-        surprise = evaluateReply brain kws $ reverse bSymbols ++ fSymbols
-    return $ ScoredReply lowered surprise
+  symbol <- seed ctx dict kws
+  (fWords, fSymbols, usedKey) <- processWords ctx dict order kws [] False symbol
+  let wordsToUse   = reverse $ take order fSymbols
+      backCtx      = createBackContext bTree order wordsToUse
+  (bWords, bSymbols, _) <- autoBabble backCtx dict order kws fSymbols usedKey
+  let lowered      = T.toLower . T.concat $ reverse bWords ++ fWords
+      surprise = evaluateReply brain kws $ reverse bSymbols ++ fSymbols
+  return $ ScoredReply lowered surprise
+  where
+    lookupSymbol = flip lookupIndex dict
+    kws          = mapMaybe lookupSymbol phrase
+    ctx          = newContext fTree order
 
 rndIndex :: MonadState StdGen m => Int -> m Int
 rndIndex n = state $ randomR (0, n - 1)
@@ -287,62 +282,3 @@ evaluateContext symbol (!count, !prob) tree =
     node = findSymbol tree symbol
     nodeCount = fromIntegral $ getCount node
     nodeUsage = fromIntegral $ getUsage tree
-
-{- $utilities
-    Utility functions to help transform input for reply generation and
-    reply output for human comprehension.
-
--}
-
-{-| Transform a single @Text@ phrase into its component parts suitable to
-    be fed into a reply generating function.
-
-Rules for tokenization:
-Four character classes: alpha, digit, apostrophe, and other
-
-If the character class changed from the previous to current character,
-then it is a boundary. The only special case is alpha -> apostrophe ->
-alpha, which is not considered to be a boundary (it's considered to be
-alpha).
-
-If the last word is alphanumeric then add a last word of ".", otherwise
-replace the last word with "." unless it already ends with one of
-"!.?".
-
--}
-getWords :: Text -> [Text]
-getWords = I.makeKeywords . tokenizeWords
-
-tokenizeWords :: Text -> [Text]
-tokenizeWords = fixup . T.groupBy sameClass . T.toUpper
-  where
-    firstAlpha = isAlpha . T.head
-    -- find boundaries
-    sameClass a b = isAlpha a == isAlpha b && isDigit a == isDigit b
-    -- fix apostrophes
-    fixup (a:b:c:rest)
-      | firstAlpha a && b == "\'" && firstAlpha c =
-        fixup (T.concat [a, b, c] : rest)
-    -- fix the last word
-    fixup (a:[])
-      | isAlphaNum (T.head a) = [a, "."]
-      | T.last a `elem` "!.?" = [a]
-      | otherwise             = ["."]
-    -- simple recursive case
-    fixup (a:rest) = a : fixup rest
-    -- handle empty input
-    fixup [] = []
-
-{-| Capitalize a sentence as best as possible given a return @Text@ from a
-    reply generating function.
-
--}
-capitalizeSentence :: Text -> Text
-capitalizeSentence = T.unwords . snd . mapAccumL go True . T.words
-  where
-    capWord w = maybe w (\(c, r) -> T.cons (toUpper c) r) (T.uncons w)
-    go acc a
-      | acc && isAlpha (T.head a) = (False, capWord a)
-      | a == "i"                  = (False, "I")
-      | T.last a `elem` "!.?"     = (True, a)
-      | otherwise                 = (acc, a)
