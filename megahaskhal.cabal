@@ -33,7 +33,7 @@ executable updatebrain
     text >= 1.1.0,
     megahaskhal >= 0.1.0.0,
     data-ordlist >= 0.2
-  ghc-options: -O2 -Wall -threaded -rtsopts -prof -funfolding-use-threshold=16 -optc-O3
+  ghc-options: -O2 -Wall -threaded
 
 executable mh-web
   default-language: Haskell2010
@@ -49,7 +49,7 @@ executable mh-web
     text >= 1.1.0,
     megahaskhal >= 0.1.0.0,
     data-ordlist >= 0.2
-  ghc-options: -O2 -Wall -threaded -rtsopts -prof -funfolding-use-threshold=16 -optc-O3
+  ghc-options: -O2 -Wall -threaded
 
 executable megahaskhal
   default-language: Haskell2010
@@ -65,7 +65,7 @@ executable megahaskhal
     text >= 1.1.0,
     megahaskhal >= 0.1.0.0,
     data-ordlist >= 0.2
-  ghc-options: -O2 -Wall -threaded -rtsopts
+  ghc-options: -O2 -Wall -threaded
 
 executable megabot
   default-language: Haskell2010
@@ -84,7 +84,7 @@ executable megabot
     data-ordlist >= 0.2,
     simpleirc >=0.3,
     split    >= 0.2.2
-  ghc-options: -O2 -Wall -threaded -rtsopts
+  ghc-options: -O2 -Wall -threaded
 
 Library
   default-language: Haskell2010
@@ -102,7 +102,7 @@ Library
   -- other-extensions:
 
 
-  ghc-options: -O2 -Wall -threaded -rtsopts
+  ghc-options: -O2 -Wall -threaded
   if flag(developer)
     ghc-prof-options: -auto-all
 
